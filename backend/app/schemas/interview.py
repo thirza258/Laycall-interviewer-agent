@@ -7,7 +7,7 @@ class JobDescriptionCreate(BaseModel):
 
 class InterviewCreate(BaseModel):
     job_description: str = Field(..., min_length=10, description="Job description to store")
-    resume_id: int = Field(..., gt=0, description="ID of the resume to associate with this interview")
+    resume_id: Optional[int] = Field(None, gt=0, description="ID of the resume to associate with this interview")
 
 class JobDescriptionResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)

@@ -30,14 +30,14 @@ async def create_interview(
     """
     Creates an Interview and associated JobDescription in a single transaction.
     """
-    resume_result = await db.execute(select(Resume).where(Resume.id == payload.resume_id))
-    resume = resume_result.scalar_one_or_none()
-    
-    if not resume:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Resume with ID {payload.resume_id} not found"
-        )
+    if payload.resume_id is not None:
+        resume_result = await db.execute(select(Resume).where(Resume.id == payload.resume_id))
+        resume = resume_result.scalar_one_or_none()
+        if not resume:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Resume with ID {payload.resume_id} not found"
+            )
 
     new_interview = Interview(status="pending")
     db.add(new_interview)

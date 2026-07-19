@@ -3,6 +3,7 @@ from logging.config import fileConfig
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 from app.db.base import Base
+from app.db.models import *  # noqa: F403 — ensure all models are registered on Base.metadata
 from app.core.config import get_settings
 
 

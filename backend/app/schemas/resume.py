@@ -6,39 +6,33 @@ from typing import Optional
 class ResumeCreate(BaseModel):
     """
     Schema for resume creation/upload request.
-    
+
     Note: The actual file upload is handled via FastAPI's UploadFile
     in the endpoint, not through this schema. This schema validates
     the form fields (like interview_id).
     """
-    interview_id: int = Field(
-        ..., 
-        gt=0, 
-        description="ID of the interview to associate this resume with"
-    )
-    
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "interview_id": 1
             }
         }
+    )
+
+    interview_id: int = Field(
+        ...,
+        gt=0,
+        description="ID of the interview to associate this resume with"
+    )
 
 
 class ResumeResponse(BaseModel):
     """
     Schema for a single resume record returned from the API.
     """
-    model_config = ConfigDict(from_attributes=True)  # Pydantic V2: enable ORM mode
-    
-    id: int = Field(..., description="Unique resume identifier")
-    interview_id: int = Field(..., description="Associated interview ID")
-    file_path: str = Field(..., description="MinIO object path (e.g., 'resumes/1/abc123.pdf')")
-    raw_text: Optional[str] = Field(None, description="Extracted plain text from the resume")
-    created_at: datetime = Field(..., description="Timestamp when record was created")
-    
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
             "example": {
                 "id": 42,
                 "interview_id": 1,
@@ -47,19 +41,22 @@ class ResumeResponse(BaseModel):
                 "created_at": "2024-01-15T10:30:00Z"
             }
         }
+    )
+
+    id: int = Field(..., description="Unique resume identifier")
+    interview_id: int = Field(..., description="Associated interview ID")
+    file_path: str = Field(..., description="MinIO object path (e.g., 'resumes/1/abc123.pdf')")
+    raw_text: Optional[str] = Field(None, description="Extracted plain text from the resume")
+    created_at: datetime = Field(..., description="Timestamp when record was created")
 
 
 class ResumeUploadResponse(BaseModel):
     """
     Wrapper schema for the resume upload success response.
     """
-    model_config = ConfigDict(from_attributes=True)
-    
-    message: str = Field(..., description="Success message")
-    resume: ResumeResponse = Field(..., description="The created resume record")
-    
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
             "example": {
                 "message": "Resume uploaded successfully",
                 "resume": {
@@ -71,6 +68,10 @@ class ResumeUploadResponse(BaseModel):
                 }
             }
         }
+    )
+
+    message: str = Field(..., description="Success message")
+    resume: ResumeResponse = Field(..., description="The created resume record")
 
 
 class ResumeListResponse(BaseModel):
@@ -88,11 +89,12 @@ class ResumeUpdate(BaseModel):
     Schema for partial updates to a resume record.
     All fields optional for PATCH requests.
     """
-    raw_text: Optional[str] = Field(None, description="Updated extracted text")
-    
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "raw_text": "Updated resume content..."
             }
         }
+    )
+
+    raw_text: Optional[str] = Field(None, description="Updated extracted text")

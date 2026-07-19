@@ -4,7 +4,7 @@ from fastapi import FastAPI
 
 from app.core.config import get_settings
 from app.db.session import engine 
-from app.api.endpoints import resumes, interviews, answers
+from app.api.endpoints import resume, interviews, answer
 from app.llm.client import get_openrouter_client
 
 
@@ -17,7 +17,7 @@ settings = get_settings()
 async def lifespan(app: FastAPI):
     """Manage app startup and shutdown lifecycle."""
 
-    logger.info(f"Starting {settings.app_name} in {settings.app_env} mode")
+    logger.info(f"Starting {settings.APP_NAME} in {settings.APP_ENV} mode")
     yield
 
     logger.info("Shutting down gracefully...")
@@ -30,16 +30,16 @@ async def lifespan(app: FastAPI):
         logger.warning(f"Cleanup failed: {e}")
 
 app = FastAPI(
-    title=settings.app_name,
+    title=settings.APP_NAME,
     version="1.0.0",
-    debug=settings.debug,
+    debug=settings.DEBUG,
     lifespan=lifespan,
 )
 
-app.include_router(resumes.router)
+app.include_router(resume.router)
 app.include_router(interviews.router)
-app.include_router(answers.router)
+app.include_router(answer.router)
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "env": settings.app_env}
+    return {"status": "healthy", "env": settings.APP_ENV}
