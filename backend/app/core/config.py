@@ -1,0 +1,56 @@
+from functools import lru_cache
+import os
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from dotenv import load_dotenv
+
+load_dotenv()  
+
+class Settings(BaseSettings):
+    APP_NAME: str = "My Mock Interview"
+    
+    
+    DB_USER: str = os.getenv("DB_USER", "pasal_user")
+    DB_PASSWORD: str = os.getenv("DB_PASSWORD", "pasal_password")
+    DB_HOST: str = os.getenv("DB_HOST", "localhost")
+    DB_PORT: str = os.getenv("DB_PORT", "5432")
+    DB_NAME: str = os.getenv("DB_NAME", "pasal_db")
+    
+    OPENROUTER_API_KEY: str = os.getenv("OPENROUTER_API_KEY", "your_default_api_key")
+    OPENROUTER_MODEL: str = os.getenv("OPENROUTER_MODEL", "google/gemma-4-26b-a4b-it")
+    
+    MINIO_ENDPOINT: str = os.getenv("MINIO_ENDPOINT")
+    MINIO_ACCESS_KEY: str = os.getenv("MINIO_ACCESS_KEY")
+    MINIO_SECRET_KEY: str = os.getenv("MINIO_SECRET_KEY")
+    MINIO_BUCKET: str = os.getenv("MINIO_BUCKET", "wallpapers")
+    MINIO_SECURE: bool = os.getenv("MINIO_SECURE", "True").lower() == "true"
+    MINIO_PUBLIC_URL: str = os.getenv("MINIO_PUBLIC_URL")
+
+    APP_ENV: str = "development"
+    DEBUG: bool = False
+
+    model_config = SettingsConfigDict(
+        env_file=".env", 
+        env_file_encoding="utf-8", 
+        extra="ignore"
+    )
+
+    @property
+    def DATABASE_CONFIG(self) -> dict:
+        return {
+            "user": self.DB_USER,
+            "password": self.DB_PASSWORD,
+            "host": self.DB_HOST,
+            "port": self.DB_PORT,
+            "database": self.DB_NAME
+        }
+
+    @property
+    def DATABASE_URL(self) -> str:
+        return (
+            f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASSWORD}"
+            f"@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+        )
+
+@lru_cache()
+def get_settings() -> Settings:
+    return Settings()
