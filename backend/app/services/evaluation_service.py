@@ -12,8 +12,8 @@ class EvaluationService:
         self.db = db
 
     async def save_evaluation(
-        self, 
-        answer_id: str, 
+        self,
+        answer_id: int,
         evaluation: AnswerEvaluation
     ) -> Evaluation:
         """Persist evaluation to database. Returns the saved Evaluation model."""

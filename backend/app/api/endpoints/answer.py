@@ -2,8 +2,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-import uuid
-
+from sqlalchemy.orm import joinedload
 from app.db.session import get_db
 from app.db.models.interview import Interview
 from app.db.models.question import Question
@@ -70,7 +69,7 @@ async def submit_answer(
 )
 async def evaluate_answer(
     interview_id: int,
-    answer_id: uuid.UUID,
+    answer_id: int,
     db: AsyncSession = Depends(get_db),
     llm_client: OpenRouterClient = Depends(get_openrouter_client)
 ):
@@ -78,15 +77,14 @@ async def evaluate_answer(
     Fetches the answer + associated question, runs evaluation agent,
     and persists results to the evaluations table.
     """
-    from sqlalchemy import select
-    from app.db.models.answer import Answer
-    from app.db.models.question import Question
-    from app.db.models.job_description import JobDescription
-    
     result = await db.execute(
         select(Answer)
-        .join(Question)
-        .join(JobDescription)
+        .join(Answer.question)
+        .options(
+            joinedload(Answer.question)
+            .joinedload(Question.interview)
+            .joinedload(Interview.job_descriptions)
+        )
         .where(
             Answer.id == answer_id,
             Question.interview_id == interview_id
@@ -108,7 +106,7 @@ async def evaluate_answer(
     )
 
     eval_service = EvaluationService(db)
-    saved_eval = await eval_service.save_evaluation(str(answer_id), evaluation)
+    saved_eval = await eval_service.save_evaluation(answer_id, evaluation)
 
     return {
         "status": "success",

@@ -1,0 +1,6 @@
+projectKey=crag
+serverUrl=http://100.117.202.34:9010
+serverVersion=26.7.0.124771
+dashboardUrl=http://100.117.202.34:9010/dashboard?id=crag
+ceTaskId=a1485dc0-8a43-4ea5-81fa-2dbf87ce4ce2
+ceTaskUrl=http://100.117.202.34:9010/api/ce/task?id=a1485dc0-8a43-4ea5-81fa-2dbf87ce4ce2

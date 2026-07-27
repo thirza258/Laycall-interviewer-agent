@@ -91,26 +91,26 @@ class TestInterviewSchemas:
 
 class TestQuestionSchema:
     def test_question_response(self):
-        qr = QuestionResponse(question_id="550e8400-e29b-41d4-a716-446655440000", question="What is Python?")
+        qr = QuestionResponse(question_id=1, question="What is Python?")
         assert qr.question == "What is Python?"
 
 
 class TestAnswerSchemas:
     def test_answer_create_valid(self):
         ac = AnswerCreate(
-            question_id="550e8400-e29b-41d4-a716-446655440000",
+            question_id=1,
             answer="Python is a high-level programming language.",
         )
-        assert ac.question_id == "550e8400-e29b-41d4-a716-446655440000"
+        assert ac.question_id == 1
         assert len(ac.answer) >= 1
 
     def test_answer_create_empty(self):
         with pytest.raises(ValidationError):
-            AnswerCreate(question_id="550e8400-e29b-41d4-a716-446655440000", answer="")
+            AnswerCreate(question_id=1, answer="")
 
     def test_answer_create_too_long(self):
         with pytest.raises(ValidationError):
-            AnswerCreate(question_id="550e8400-e29b-41d4-a716-446655440000", answer="x" * 5001)
+            AnswerCreate(question_id=1, answer="x" * 5001)
 
 
 class TestAgentSchemas:

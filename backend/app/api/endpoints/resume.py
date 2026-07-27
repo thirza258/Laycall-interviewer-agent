@@ -9,6 +9,8 @@ from app.db.models.interview import Interview
 from app.schemas.resume import ResumeResponse, ResumeUploadResponse
 from app.storage.storage import upload_to_minio, validate_file
 from app.services.resume_parser import extract_resume_text_from_bytes
+from app.services.interview_orchestration import InterviewOrchestrationService
+from app.llm.client import OpenRouterClient, get_openrouter_client
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +26,8 @@ router = APIRouter(prefix="/api/v1/resumes", tags=["resumes"])
 async def upload_resume(
     file: UploadFile = File(..., description="Resume file (PDF or DOCX)"),
     interview_id: int = Form(..., description="ID of the interview to associate with"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    llm_client: OpenRouterClient = Depends(get_openrouter_client),
 ) -> ResumeUploadResponse:
     """
     Upload a resume file to MinIO, extract its text, and create a database record.
@@ -91,7 +94,17 @@ async def upload_resume(
         f"object={object_name}, size={len(file_content)} bytes, "
         f"text_length={len(raw_text) if raw_text else 0}"
     )
-    
+
+    # Trigger question generation pipeline
+    try:
+        orchestration = InterviewOrchestrationService(db, llm_client)
+        question_count = await orchestration.generate_questions(interview_id)
+        logger.info(f"Generated {question_count} questions for interview {interview_id}")
+    except Exception as e:
+        logger.error(f"Question generation failed for interview {interview_id}: {e}", exc_info=True)
+        # Don't fail the upload if question generation fails
+        # Frontend will retry by clicking "Next Question"
+
     return ResumeUploadResponse(
         message="Resume uploaded successfully",
         resume=ResumeResponse.model_validate(new_resume)

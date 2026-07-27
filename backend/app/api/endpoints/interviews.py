@@ -2,7 +2,6 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import  select
-from uuid import UUID
 from app.db.session import get_db
 from app.db.models.interview import Interview, InterviewStatus
 from app.db.models.job_description import JobDescription
@@ -72,7 +71,7 @@ async def create_interview(
 )
 async def get_next_question(
     interview_id: int,
-    last_question_id: UUID | None = Query(None, description="ID of the last answered question to fetch the next one"),
+    last_question_id: int | None = Query(None, description="ID of the last answered question to fetch the next one"),
     db: AsyncSession = Depends(get_db)
 ) -> QuestionResponse:
     # 1. Verify interview exists
