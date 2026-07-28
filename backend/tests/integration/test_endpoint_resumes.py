@@ -1,5 +1,6 @@
 import pytest
 from unittest.mock import patch, AsyncMock
+from fastapi import HTTPException
 
 from app.db.models.interview import Interview
 
@@ -71,3 +72,151 @@ class TestResumeUploadEndpoint:
         )
 
         assert response.status_code == 422
+
+
+class TestResumeUploadEdgeCases:
+    @pytest.mark.asyncio
+    async def test_upload_resume_empty_file(self, test_client, db_session):
+        """Uploading an empty file should return 400."""
+        interview = Interview()
+        db_session.add(interview)
+        await db_session.commit()
+
+        with patch("app.api.endpoints.resumes.validate_file") as mock_validate:
+            mock_validate.return_value = None
+
+            response = await test_client.post(
+                "/api/v1/resumes",
+                files={"file": ("empty.pdf", b"", "application/pdf")},
+                data={"interview_id": str(interview.id)},
+            )
+
+        assert response.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_upload_resume_invalid_file_type(self, test_client, db_session):
+        """Uploading a file with an invalid extension should return 400."""
+        interview = Interview()
+        db_session.add(interview)
+        await db_session.commit()
+
+        with patch("app.api.endpoints.resumes.validate_file") as mock_validate:
+            mock_validate.side_effect = HTTPException(
+                status_code=400,
+                detail="Invalid file type. Allowed types: .pdf, .docx"
+            )
+
+            response = await test_client.post(
+                "/api/v1/resumes",
+                files={"file": ("resume.exe", b"malicious", "application/octet-stream")},
+                data={"interview_id": str(interview.id)},
+            )
+
+        assert response.status_code == 400
+        assert "Invalid file type" in response.json()["detail"]
+
+    @pytest.mark.asyncio
+    async def test_upload_resume_file_too_large(self, test_client, db_session):
+        """Uploading a file exceeding the size limit should return 400."""
+        interview = Interview()
+        db_session.add(interview)
+        await db_session.commit()
+
+        with patch("app.api.endpoints.resumes.validate_file") as mock_validate:
+            mock_validate.side_effect = HTTPException(
+                status_code=400,
+                detail="File size exceeds the maximum allowed size of 10 MB"
+            )
+
+            response = await test_client.post(
+                "/api/v1/resumes",
+                files={"file": ("large.pdf", b"x" * 100, "application/pdf")},
+                data={"interview_id": str(interview.id)},
+            )
+
+        assert response.status_code == 400
+        assert "File size" in response.json()["detail"]
+
+    @pytest.mark.asyncio
+    async def test_upload_resume_file_read_failure(self, test_client, db_session):
+        """Failure to read the uploaded file should return 500."""
+        interview = Interview()
+        db_session.add(interview)
+        await db_session.commit()
+
+        with patch("app.api.endpoints.resumes.validate_file") as mock_validate, \
+             patch("fastapi.UploadFile.read", new_callable=AsyncMock) as mock_read:
+
+            mock_validate.return_value = None
+            mock_read.side_effect = Exception("Simulated read failure")
+
+            response = await test_client.post(
+                "/api/v1/resumes",
+                files={"file": ("resume.pdf", b"%PDF-1.4 content", "application/pdf")},
+                data={"interview_id": str(interview.id)},
+            )
+
+        assert response.status_code == 500
+
+    @pytest.mark.asyncio
+    async def test_upload_resume_minio_failure(self, test_client, db_session):
+        """MinIO upload failure should return 500."""
+        interview = Interview()
+        db_session.add(interview)
+        await db_session.commit()
+
+        with patch("app.api.endpoints.resumes.validate_file") as mock_validate, \
+             patch("app.api.endpoints.resumes.upload_to_minio") as mock_upload:
+
+            mock_validate.return_value = None
+            mock_upload.side_effect = Exception("MinIO connection refused")
+
+            response = await test_client.post(
+                "/api/v1/resumes",
+                files={"file": ("resume.pdf", b"%PDF-1.4 content", "application/pdf")},
+                data={"interview_id": str(interview.id)},
+            )
+
+        assert response.status_code == 500
+
+    @pytest.mark.asyncio
+    async def test_upload_resume_missing_interview_id(self, test_client, db_session):
+        """Uploading without an interview_id should return 422."""
+        response = await test_client.post(
+            "/api/v1/resumes",
+            files={"file": ("resume.pdf", b"content", "application/pdf")},
+        )
+
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_upload_resume_question_generation_failure(self, test_client, db_session):
+        """Resume upload should succeed even if question generation fails."""
+        interview = Interview()
+        db_session.add(interview)
+        await db_session.commit()
+
+        with patch("app.api.endpoints.resumes.validate_file") as mock_validate, \
+             patch("app.api.endpoints.resumes.upload_to_minio") as mock_upload, \
+             patch("app.api.endpoints.resumes.extract_resume_text_from_bytes") as mock_extract, \
+             patch("app.api.endpoints.resumes.InterviewOrchestrationService") as mock_orch:
+
+            mock_validate.return_value = None
+            mock_upload.return_value = ("resumes/1/file.pdf", "https://example.com/file.pdf")
+            mock_extract.return_value = "Extracted text"
+
+            mock_orch_instance = mock_orch.return_value
+            mock_orch_instance.generate_questions = AsyncMock(
+                side_effect=Exception("LLM error during question generation")
+            )
+
+            response = await test_client.post(
+                "/api/v1/resumes",
+                files={"file": ("resume.pdf", b"%PDF-1.4 mock", "application/pdf")},
+                data={"interview_id": str(interview.id)},
+            )
+
+        # Upload should still succeed even if question generation fails
+        assert response.status_code == 201
+        data = response.json()
+        assert data["message"] == "Resume uploaded successfully"

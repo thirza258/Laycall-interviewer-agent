@@ -43,7 +43,7 @@ class TestSubmitAnswer:
         response = await test_client.post(
             "/api/v1/interviews/99999/answers",
             json={
-                "question_id": "550e8400-e29b-41d4-a716-446655440000",
+                "question_id": 99999,
                 "answer": "My answer.",
             },
         )
@@ -90,6 +90,125 @@ class TestSubmitAnswer:
         response = await test_client.post(
             f"/api/v1/interviews/{interview.id}/answers",
             json={"question_id": str(question.id), "answer": ""},
+        )
+
+        assert response.status_code == 422
+
+
+class TestSubmitAnswerEdgeCases:
+    @pytest.mark.asyncio
+    async def test_submit_answer_invalid_question_id_format(self, test_client, db_session):
+        """Passing a non-integer question_id should return 422."""
+        interview = Interview()
+        db_session.add(interview)
+        await db_session.commit()
+
+        response = await test_client.post(
+            f"/api/v1/interviews/{interview.id}/answers",
+            json={
+                "question_id": "not-an-integer",
+                "answer": "This is a valid answer.",
+            },
+        )
+
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_submit_answer_missing_question_id(self, test_client, db_session):
+        """Missing question_id should return 422."""
+        interview = Interview()
+        db_session.add(interview)
+        await db_session.commit()
+
+        response = await test_client.post(
+            f"/api/v1/interviews/{interview.id}/answers",
+            json={"answer": "This answer has no question_id."},
+        )
+
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_submit_answer_missing_answer_field(self, test_client, db_session):
+        """Missing answer field should return 422."""
+        interview = Interview()
+        db_session.add(interview)
+        await db_session.commit()
+
+        response = await test_client.post(
+            f"/api/v1/interviews/{interview.id}/answers",
+            json={"question_id": 1},
+        )
+
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_submit_answer_invalid_interview_id_format(self, test_client, db_session):
+        """Passing a non-integer interview_id should return 422."""
+        response = await test_client.post(
+            "/api/v1/interviews/not-an-integer/answers",
+            json={"question_id": 1, "answer": "Valid answer."},
+        )
+
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_submit_answer_whitespace_only(self, test_client, db_session):
+        """Submitting only whitespace should fail validation (min_length=1 means stripped empty string)."""
+        interview = Interview()
+        db_session.add(interview)
+        await db_session.flush()
+
+        question = Question(
+            interview_id=interview.id, question="Q?", question_type="tech",
+            difficulty="easy", sequence=1,
+        )
+        db_session.add(question)
+        await db_session.commit()
+
+        response = await test_client.post(
+            f"/api/v1/interviews/{interview.id}/answers",
+            json={"question_id": question.id, "answer": "   \t\n   "},
+        )
+
+        # The endpoint strips the answer, so whitespace-only becomes empty string
+        # which should fail Pydantic min_length=1 validation
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_submit_answer_max_length(self, test_client, db_session):
+        """Submitting an answer at the max length boundary (5000 chars) should succeed."""
+        interview = Interview()
+        db_session.add(interview)
+        await db_session.flush()
+
+        question = Question(
+            interview_id=interview.id, question="Q?", question_type="tech",
+            difficulty="easy", sequence=1,
+        )
+        db_session.add(question)
+        await db_session.commit()
+
+        long_answer = "A" * 5000
+
+        response = await test_client.post(
+            f"/api/v1/interviews/{interview.id}/answers",
+            json={"question_id": question.id, "answer": long_answer},
+        )
+
+        assert response.status_code == 201
+
+    @pytest.mark.asyncio
+    async def test_submit_answer_exceeds_max_length(self, test_client, db_session):
+        """Submitting an answer exceeding 5000 chars should return 422."""
+        interview = Interview()
+        db_session.add(interview)
+        await db_session.commit()
+
+        too_long_answer = "A" * 5001
+
+        response = await test_client.post(
+            f"/api/v1/interviews/{interview.id}/answers",
+            json={"question_id": 1, "answer": too_long_answer},
         )
 
         assert response.status_code == 422
@@ -152,7 +271,7 @@ class TestEvaluateAnswer:
 
     @pytest.mark.asyncio
     async def test_evaluate_already_evaluated(self, test_client, db_session):
-        """Re-evaluating an already evaluated answer should return an error."""
+        """Re-evaluating an already evaluated answer should return 409 Conflict."""
         interview = Interview()
         db_session.add(interview)
         await db_session.flush()
@@ -191,7 +310,115 @@ class TestEvaluateAnswer:
                 f"/api/v1/interviews/{interview.id}/answers/{answer.id}/evaluate",
             )
 
-        assert response.status_code == 400
+        assert response.status_code == 409
+
+    @pytest.mark.asyncio
+    async def test_evaluate_answer_wrong_interview(self, test_client, db_session):
+        """Evaluating an answer under the wrong interview should return 404."""
+        interview1 = Interview()
+        interview2 = Interview()
+        db_session.add_all([interview1, interview2])
+        await db_session.flush()
+
+        jd = JobDescription(interview_id=interview1.id, raw_text="Job description text")
+        db_session.add(jd)
+        await db_session.flush()
+
+        question = Question(
+            interview_id=interview1.id, question="What is async?",
+            question_type="technical", difficulty="medium", sequence=1,
+        )
+        db_session.add(question)
+        await db_session.flush()
+
+        answer = Answer(question_id=question.id, answer="Async is for non-blocking I/O.")
+        db_session.add(answer)
+        await db_session.commit()
+
+        response = await test_client.post(
+            f"/api/v1/interviews/{interview2.id}/answers/{answer.id}/evaluate",
+        )
+
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_evaluate_answer_no_job_description(self, test_client, db_session):
+        """Evaluating an answer where the interview has no job description should still succeed (JD is optional context)."""
+        interview = Interview()
+        db_session.add(interview)
+        await db_session.flush()
+
+        question = Question(
+            interview_id=interview.id, question="Tell me about yourself.",
+            question_type="general", difficulty="easy", sequence=1,
+        )
+        db_session.add(question)
+        await db_session.flush()
+
+        answer = Answer(question_id=question.id, answer="I am a software engineer with 5 years experience.")
+        db_session.add(answer)
+        await db_session.commit()
+
+        with patch("app.api.endpoints.answer.AnswerEvaluationAgent") as mock_agent_cls:
+            mock_agent = mock_agent_cls.return_value
+            mock_eval = AsyncMock()
+            mock_eval.technical_score = 7
+            mock_eval.communication_score = 8
+            mock_eval.feedback = "Good introduction with relevant experience highlighted."
+            mock_agent.evaluate = AsyncMock(return_value=mock_eval)
+
+            response = await test_client.post(
+                f"/api/v1/interviews/{interview.id}/answers/{answer.id}/evaluate",
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "success"
+
+    @pytest.mark.asyncio
+    async def test_evaluate_answer_llm_timeout(self, test_client, db_session):
+        """LLM timeout during evaluation should return an appropriate error."""
+        interview = Interview()
+        db_session.add(interview)
+        await db_session.flush()
+
+        jd = JobDescription(interview_id=interview.id, raw_text="Looking for Python dev.")
+        db_session.add(jd)
+        await db_session.flush()
+
+        question = Question(
+            interview_id=interview.id, question="Explain decorators.",
+            question_type="technical", difficulty="hard", sequence=1,
+        )
+        db_session.add(question)
+        await db_session.flush()
+
+        answer = Answer(question_id=question.id, answer="Decorators wrap functions to extend behavior.")
+        db_session.add(answer)
+        await db_session.commit()
+
+        with patch("app.api.endpoints.answer.AnswerEvaluationAgent") as mock_agent_cls:
+            mock_agent = mock_agent_cls.return_value
+            mock_agent.evaluate = AsyncMock(side_effect=Exception("LLM timeout"))
+
+            response = await test_client.post(
+                f"/api/v1/interviews/{interview.id}/answers/{answer.id}/evaluate",
+            )
+
+        assert response.status_code == 502
+
+    @pytest.mark.asyncio
+    async def test_evaluate_answer_invalid_answer_id_format(self, test_client, db_session):
+        """Passing a non-integer answer_id should return 422."""
+        interview = Interview()
+        db_session.add(interview)
+        await db_session.commit()
+
+        response = await test_client.post(
+            f"/api/v1/interviews/{interview.id}/answers/not-an-integer/evaluate",
+        )
+
+        assert response.status_code == 422
 
 
 class TestAnswerModelRelationships:

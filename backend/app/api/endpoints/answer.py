@@ -96,17 +96,30 @@ async def evaluate_answer(
         raise HTTPException(status_code=404, detail="Answer not found")
 
     agent = AnswerEvaluationAgent(llm_client)
-    evaluation = await agent.evaluate(
-        question_text=answer.question.question,
-        answer_text=answer.answer,
-        context={
-            "job_description": answer.question.interview.job_descriptions[0].raw_text[:500] 
-            if answer.question.interview.job_descriptions else None
-        }
-    )
+    try:
+        evaluation = await agent.evaluate(
+            question_text=answer.question.question,
+            answer_text=answer.answer,
+            context={
+                "job_description": answer.question.interview.job_descriptions[0].raw_text[:500]
+                if answer.question.interview.job_descriptions else None
+            }
+        )
+    except Exception as e:
+        logger.error(f"LLM evaluation failed for answer {answer_id}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Evaluation service temporarily unavailable"
+        )
 
     eval_service = EvaluationService(db)
-    saved_eval = await eval_service.save_evaluation(answer_id, evaluation)
+    try:
+        saved_eval = await eval_service.save_evaluation(answer_id, evaluation)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(e)
+        )
 
     return {
         "status": "success",

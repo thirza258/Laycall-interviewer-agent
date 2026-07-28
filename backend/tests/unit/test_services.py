@@ -59,6 +59,55 @@ class TestEvaluationService:
 
         mock_db.add.assert_not_called()
 
+    @pytest.mark.asyncio
+    async def test_save_evaluation_with_integer_answer_id(self, service, mock_db):
+        """Should accept integer answer_id."""
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_db.execute.return_value = mock_result
+
+        evaluation = AnswerEvaluation(
+            technical_score=9,
+            communication_score=8,
+            feedback="Great job explaining async patterns.",
+        )
+
+        result = await service.save_evaluation(42, evaluation)
+        assert result is not None
+        mock_db.add.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_save_evaluation_with_max_scores(self, service, mock_db):
+        """Should accept maximum valid scores (10/10)."""
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_db.execute.return_value = mock_result
+
+        evaluation = AnswerEvaluation(
+            technical_score=10,
+            communication_score=10,
+            feedback="Perfect answer with flawless technical accuracy and excellent communication.",
+        )
+
+        result = await service.save_evaluation(1, evaluation)
+        assert result is not None
+
+    @pytest.mark.asyncio
+    async def test_save_evaluation_with_zero_scores(self, service, mock_db):
+        """Should accept minimum valid scores (0/10)."""
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_db.execute.return_value = mock_result
+
+        evaluation = AnswerEvaluation(
+            technical_score=0,
+            communication_score=0,
+            feedback="The answer was completely off-topic and unclear.",
+        )
+
+        result = await service.save_evaluation(1, evaluation)
+        assert result is not None
+
 
 class TestInterviewCompletionService:
     @pytest.fixture
