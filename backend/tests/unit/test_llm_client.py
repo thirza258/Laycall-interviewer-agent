@@ -8,8 +8,39 @@ from app.llm.exceptions import (
     OpenRouterTimeoutError,
     OpenRouterRateLimitError,
     OpenRouterAPIError,
+    OpenRouterTruncatedError,
     OpenRouterValidationError,
 )
+
+
+def make_completion(
+    content='{"answer": "yes"}',
+    finish_reason="stop",
+    model="test-model",
+    error=None,
+    choices=...,
+):
+    """
+    Build a stand-in for an OpenAI ChatCompletion.
+
+    A bare MagicMock auto-creates a truthy `.error`, which a real response
+    only carries when the upstream provider failed — so it is set explicitly.
+    """
+    mock_choice = MagicMock()
+    mock_choice.message.content = content
+    mock_choice.finish_reason = finish_reason
+
+    mock_usage = MagicMock()
+    mock_usage.prompt_tokens = 10
+    mock_usage.completion_tokens = 5
+    mock_usage.total_tokens = 15
+
+    mock_response = MagicMock()
+    mock_response.choices = [mock_choice] if choices is ... else choices
+    mock_response.model = model
+    mock_response.usage = mock_usage
+    mock_response.error = error
+    return mock_response
 
 
 class TestOpenRouterClient:
@@ -24,13 +55,28 @@ class TestOpenRouterClient:
     def client(self, mock_openai):
         return OpenRouterClient()
 
+    @pytest.fixture
+    def no_sleep(self):
+        """Skip retry backoff so retry tests stay fast."""
+        with patch("app.llm.client.asyncio.sleep", new=AsyncMock()) as mock:
+            yield mock
+
     def test_client_initialization(self, client, mock_openai):
         """Client should initialize AsyncOpenAI with correct base URL."""
         mock_openai.assert_called_once()
         call_kwargs = mock_openai.call_args.kwargs
         assert call_kwargs["base_url"] == "https://openrouter.ai/api/v1"
-        assert call_kwargs["timeout"] == 10.0
         assert "api_key" in call_kwargs
+
+    def test_client_timeout_allows_slow_completions(self, client, mock_openai):
+        """Read timeout must be generous; connect timeout must stay short."""
+        timeout = mock_openai.call_args.kwargs["timeout"]
+        assert timeout.read >= 60.0, "LLM completions routinely exceed a short timeout"
+        assert timeout.connect <= 15.0, "Connection failures should fail fast"
+
+    def test_client_retries_transient_failures(self, client, mock_openai):
+        """The SDK should be configured to retry transient upstream errors."""
+        assert mock_openai.call_args.kwargs["max_retries"] >= 1
 
     def test_default_headers(self, client):
         """Client should set HTTP-Referer and X-Title headers."""
@@ -41,20 +87,7 @@ class TestOpenRouterClient:
     @pytest.mark.asyncio
     async def test_generate_completion_success(self, client):
         """Should parse a successful LLM response."""
-        mock_choice = MagicMock()
-        mock_choice.message.content = '{"answer": "yes"}'
-        mock_choice.finish_reason = "stop"
-
-        mock_usage = MagicMock()
-        mock_usage.prompt_tokens = 10
-        mock_usage.completion_tokens = 5
-        mock_usage.total_tokens = 15
-
-        mock_response = MagicMock()
-        mock_response.choices = [mock_choice]
-        mock_response.model = "test-model"
-        mock_response.usage = mock_usage
-
+        mock_response = make_completion('{"answer": "yes"}')
         client.client.chat.completions.create = AsyncMock(return_value=mock_response)
 
         request = LLMRequest(messages=[{"role": "user", "content": "Are you there?"}])
@@ -126,6 +159,132 @@ class TestOpenRouterClient:
 
         with pytest.raises(OpenRouterAPIError):
             await client.generate_completion(request)
+
+    @pytest.mark.asyncio
+    async def test_uses_configured_model_by_default(self, client):
+        """A request without a model should use settings.OPENROUTER_MODEL."""
+        client.client.chat.completions.create = AsyncMock(return_value=make_completion())
+
+        await client.generate_completion(
+            LLMRequest(messages=[{"role": "user", "content": "Hi"}])
+        )
+
+        assert client.client.chat.completions.create.call_args.kwargs["model"] == client.default_model
+
+    @pytest.mark.asyncio
+    async def test_explicit_model_overrides_default(self, client):
+        client.client.chat.completions.create = AsyncMock(return_value=make_completion())
+
+        await client.generate_completion(
+            LLMRequest(messages=[{"role": "user", "content": "Hi"}], model="vendor/other")
+        )
+
+        assert client.client.chat.completions.create.call_args.kwargs["model"] == "vendor/other"
+
+    @pytest.mark.asyncio
+    async def test_inline_error_payload_is_retried(self, client, no_sleep):
+        """HTTP 200 with an upstream error payload should be retried, then succeed."""
+        client.client.chat.completions.create = AsyncMock(
+            side_effect=[
+                make_completion(error={"code": 502, "message": "no instances available"}),
+                make_completion(content='{"answer": "recovered"}'),
+            ]
+        )
+
+        request = LLMRequest(messages=[{"role": "user", "content": "Hi"}])
+        result = await client.generate_completion(request)
+
+        assert result.content == '{"answer": "recovered"}'
+        assert client.client.chat.completions.create.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_inline_error_payload_gives_up_after_retries(self, client, no_sleep):
+        """Persistent upstream errors should surface as an API error, not as valid data."""
+        client.client.chat.completions.create = AsyncMock(
+            return_value=make_completion(error={"code": 503, "message": "provider down"})
+        )
+
+        request = LLMRequest(messages=[{"role": "user", "content": "Hi"}])
+        with pytest.raises(OpenRouterAPIError):
+            await client.generate_completion(request)
+
+        assert client.client.chat.completions.create.await_count == client.max_retries
+
+    @pytest.mark.asyncio
+    async def test_inline_rate_limit_is_not_retried(self, client, no_sleep):
+        """An inline 429 is a rate limit, not a transient blip."""
+        client.client.chat.completions.create = AsyncMock(
+            return_value=make_completion(error={"code": 429, "message": "slow down"})
+        )
+
+        request = LLMRequest(messages=[{"role": "user", "content": "Hi"}])
+        with pytest.raises(OpenRouterRateLimitError):
+            await client.generate_completion(request)
+
+        assert client.client.chat.completions.create.await_count == 1
+
+    @pytest.mark.asyncio
+    async def test_inline_client_error_is_not_retried(self, client, no_sleep):
+        """A bad key or missing credits will not fix itself; fail immediately."""
+        client.client.chat.completions.create = AsyncMock(
+            return_value=make_completion(error={"code": 401, "message": "invalid api key"})
+        )
+
+        request = LLMRequest(messages=[{"role": "user", "content": "Hi"}])
+        with pytest.raises(OpenRouterAPIError):
+            await client.generate_completion(request)
+
+        assert client.client.chat.completions.create.await_count == 1
+
+    @pytest.mark.asyncio
+    async def test_missing_choices_is_retried(self, client, no_sleep):
+        client.client.chat.completions.create = AsyncMock(
+            side_effect=[make_completion(choices=[]), make_completion()]
+        )
+
+        request = LLMRequest(messages=[{"role": "user", "content": "Hi"}])
+        result = await client.generate_completion(request)
+
+        assert result.content == '{"answer": "yes"}'
+        assert client.client.chat.completions.create.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_empty_content_is_retried(self, client, no_sleep):
+        client.client.chat.completions.create = AsyncMock(
+            side_effect=[make_completion(content="   "), make_completion()]
+        )
+
+        request = LLMRequest(messages=[{"role": "user", "content": "Hi"}])
+        result = await client.generate_completion(request)
+
+        assert result.content == '{"answer": "yes"}'
+        assert client.client.chat.completions.create.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_truncated_response_names_the_cause(self, client, no_sleep):
+        """finish_reason=length means a token budget problem, not invalid JSON."""
+        client.client.chat.completions.create = AsyncMock(
+            return_value=make_completion(content='{"questions": [', finish_reason="length")
+        )
+
+        request = LLMRequest(messages=[{"role": "user", "content": "Hi"}])
+        with pytest.raises(OpenRouterTruncatedError) as exc_info:
+            await client.generate_completion(request)
+
+        assert "token limit" in str(exc_info.value)
+        assert client.client.chat.completions.create.await_count == 1
+
+    @pytest.mark.asyncio
+    async def test_token_limit_with_complete_json_is_kept(self, client, no_sleep):
+        """Hitting the cap after the JSON closed is not a failure."""
+        client.client.chat.completions.create = AsyncMock(
+            return_value=make_completion(content='{"ok": true}\n', finish_reason="length")
+        )
+
+        request = LLMRequest(messages=[{"role": "user", "content": "Hi"}])
+        result = await client.generate_completion(request)
+
+        assert result.content == '{"ok": true}\n'
 
     @pytest.mark.asyncio
     async def test_close(self, client):

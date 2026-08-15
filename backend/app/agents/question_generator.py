@@ -35,7 +35,9 @@ class QuestionGeneratorAgent:
             ],
             temperature=0.7, # Higher creativity for question phrasing
             response_format={"type": "json_object"},
-            max_tokens=1500
+            # 10-20 questions with type/difficulty fields overruns a 1500-token
+            # budget, which truncates the JSON and fails validation.
+            max_tokens=4000
         )
 
         response = await self.llm_client.generate_completion(request)

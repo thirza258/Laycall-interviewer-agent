@@ -60,7 +60,7 @@ class TestQuestionGeneratorAgent:
 
         call_args = mock_llm_client.generate_completion.call_args[0][0]
         assert call_args.temperature == 0.7
-        assert call_args.max_tokens == 1500
+        assert call_args.max_tokens == 4000
         # Verify spec data is included in the prompt
         user_content = call_args.messages[-1]["content"]
         assert "Backend Engineer" in user_content

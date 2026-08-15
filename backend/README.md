@@ -69,7 +69,11 @@ MINIO_PUBLIC_URL=https://s3.nevatal.tech
 |---|---|
 | `DB_*` | PostgreSQL connection details |
 | `OPENROUTER_API_KEY` | Your OpenRouter API key |
-| `OPENROUTER_MODEL` | Model identifier on OpenRouter |
+| `OPENROUTER_MODEL` | Model identifier on OpenRouter — used by every agent |
+| `OPENROUTER_TIMEOUT` | Read timeout per LLM call, seconds (default `90`) |
+| `OPENROUTER_CONNECT_TIMEOUT` | Connect timeout, seconds (default `10`) |
+| `OPENROUTER_MAX_RETRIES` | Retries for transient upstream failures (default `3`) |
+| `QUESTION_GENERATION_TIMEOUT` | Ceiling for the full question pipeline, seconds (default `240`) |
 | `MINIO_*` | S3-compatible storage credentials and bucket |
 
 ### 5. Run database migrations

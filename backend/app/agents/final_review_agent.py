@@ -81,7 +81,8 @@ Generate the final assessment based on this complete interview record.
             ],
             temperature=0.2,  # Low temperature for consistent, reliable scoring
             response_format={"type": "json_object"},
-            max_tokens=800
+            # Three prose lists plus scores; 800 tokens truncates longer reports.
+            max_tokens=2000
         )
 
         response = await self.llm_client.generate_completion(request)

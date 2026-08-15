@@ -14,7 +14,9 @@ from app.llm.exceptions import (
 class TestLLMRequest:
     def test_minimal_request(self):
         req = LLMRequest(messages=[{"role": "user", "content": "Hello"}])
-        assert req.model == "openai/gpt-4o-mini"
+        # No model means "use the configured OPENROUTER_MODEL"; the client
+        # resolves it at request time.
+        assert req.model is None
         assert req.temperature == 0.7
         assert req.max_tokens is None
         assert req.response_format is None

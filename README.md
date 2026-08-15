@@ -101,7 +101,11 @@ Copy `.env.example` to `.env` and fill in the values:
 | Variable | Required | Description |
 |---|---|---|
 | `OPENROUTER_API_KEY` | **Yes** | API key from [openrouter.ai](https://openrouter.ai) |
-| `OPENROUTER_MODEL` | No | Model ID (default: `google/gemma-4-26b-a4b-it`) |
+| `OPENROUTER_MODEL` | No | Model ID used by every agent (default: `google/gemma-4-26b-a4b-it`) |
+| `OPENROUTER_TIMEOUT` | No | Read timeout per LLM call in seconds (default: `90`) |
+| `OPENROUTER_CONNECT_TIMEOUT` | No | Connect timeout in seconds (default: `10`) |
+| `OPENROUTER_MAX_RETRIES` | No | Retries for transient upstream failures (default: `3`) |
+| `QUESTION_GENERATION_TIMEOUT` | No | Ceiling for the full question pipeline in seconds (default: `240`) |
 | `DB_USER` | No | PostgreSQL user |
 | `DB_PASSWORD` | No | PostgreSQL password |
 | `DB_NAME` | No | PostgreSQL database name |
@@ -110,6 +114,25 @@ Copy `.env.example` to `.env` and fill in the values:
 | `MINIO_BUCKET` | No | MinIO bucket name |
 
 When running with Docker, the database and MinIO connection details are pre-configured — you only need to set `OPENROUTER_API_KEY`.
+
+### Troubleshooting: the app "loses" the model
+
+Question generation runs five LLM calls in sequence, and a single call can take
+a minute. If an interview will not start, or evaluations come back with
+"Could not reach the model", check the backend logs first:
+
+```bash
+docker compose logs backend | grep -iE "openrouter|LLM"
+```
+
+| What you see | What to do |
+|---|---|
+| Timed out | Raise `OPENROUTER_TIMEOUT` |
+| 429 / rate limit | Retries already back off — wait, or pick a less busy model |
+| 401 or 402 | The key is invalid or the account is out of credits. No timeout or retry setting fixes this — replace the key or top up |
+
+If an interview ends up with no questions, asking for the first question retries
+the pipeline automatically.
 
 ## Project Structure
 

@@ -96,16 +96,22 @@ async def upload_resume(
     )
 
     # Trigger question generation pipeline
+    question_count = 0
+    generation_error: str | None = None
     try:
         orchestration = InterviewOrchestrationService(db, llm_client)
         question_count = await orchestration.generate_questions(interview_id)
         logger.info(f"Generated {question_count} questions for interview {interview_id}")
     except Exception as e:
         logger.error(f"Question generation failed for interview {interview_id}: {e}", exc_info=True)
-        # Don't fail the upload if question generation fails
-        # Frontend will retry by clicking "Next Question"
+        # Don't fail the upload if question generation fails; the first
+        # "next question" request retries the pipeline. Report it so the
+        # frontend does not claim the interview is ready when it is not.
+        generation_error = str(e)
 
     return ResumeUploadResponse(
         message="Resume uploaded successfully",
-        resume=ResumeResponse.model_validate(new_resume)
+        resume=ResumeResponse.model_validate(new_resume),
+        questions_generated=question_count,
+        generation_error=generation_error
     )

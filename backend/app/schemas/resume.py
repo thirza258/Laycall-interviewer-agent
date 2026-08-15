@@ -65,13 +65,23 @@ class ResumeUploadResponse(BaseModel):
                     "file_path": "resumes/1/a3f8b2c1d4e5.pdf",
                     "raw_text": "John Doe\nSoftware Engineer...",
                     "created_at": "2024-01-15T10:30:00Z"
-                }
+                },
+                "questions_generated": 12,
+                "generation_error": None
             }
         }
     )
 
     message: str = Field(..., description="Success message")
     resume: ResumeResponse = Field(..., description="The created resume record")
+    questions_generated: int = Field(
+        0,
+        description="Number of interview questions generated for this upload"
+    )
+    generation_error: Optional[str] = Field(
+        None,
+        description="Why question generation failed, if it did. The interview retries on the first question request."
+    )
 
 
 class ResumeListResponse(BaseModel):

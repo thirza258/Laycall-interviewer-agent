@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +12,8 @@ from app.db.models.question import Question
 from app.schemas.question import QuestionResponse
 from app.schemas.interview_result import InterviewResultsResponse
 from app.db.models.interview_spec import InterviewSpec
+from app.llm.client import OpenRouterClient, get_openrouter_client
+from app.services.interview_orchestration import InterviewOrchestrationService
 
 router = APIRouter(prefix="/api/v1/interviews", tags=["interviews"])
 logger = logging.getLogger(__name__)
@@ -72,17 +75,56 @@ async def create_interview(
 async def get_next_question(
     interview_id: int,
     last_question_id: int | None = Query(None, description="ID of the last answered question to fetch the next one"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    llm_client: OpenRouterClient = Depends(get_openrouter_client)
 ) -> QuestionResponse:
     # 1. Verify interview exists
     interview = (await db.execute(select(Interview).where(Interview.id == interview_id))).scalar_one_or_none()
     if not interview:
         raise HTTPException(status_code=404, detail="Interview not found")
 
-    # 2. Base query for questions
+    # 2. If generation failed during upload the interview has no questions at
+    #    all. Retry it here so a transient LLM outage does not strand the
+    #    interview permanently. Interviews without a resume or job description
+    #    have nothing to generate from and keep the plain "no questions" answer.
+    orchestration = InterviewOrchestrationService(db, llm_client)
+    if (
+        await orchestration.count_questions(interview_id) == 0
+        and await orchestration.can_generate(interview_id)
+    ):
+        # Never queue behind an in-flight run: waiting would burn the caller's
+        # connection and leave the browser hanging on a request it cannot use.
+        if orchestration.is_generating(interview_id):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Your interview questions are still being prepared. Please try again in a few seconds."
+            )
+
+        logger.info(f"Interview {interview_id} has no questions; retrying generation")
+        try:
+            await orchestration.generate_questions(interview_id)
+        except ValueError as e:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        except (asyncio.TimeoutError, TimeoutError):
+            logger.error(f"Question generation timed out for interview {interview_id}")
+            raise HTTPException(
+                status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+                detail="Preparing your questions is taking longer than expected. Please try again."
+            )
+        except Exception as e:
+            logger.error(
+                f"Question generation retry failed for interview {interview_id}: {e}",
+                exc_info=True
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Could not reach the interview model. Please try again in a moment."
+            )
+
+    # 3. Base query for questions
     stmt = select(Question).where(Question.interview_id == interview_id).order_by(Question.sequence)
 
-    # 3. If last_question_id provided, fetch sequence > that question's sequence
+    # 4. If last_question_id provided, fetch sequence > that question's sequence
     if last_question_id:
         last_q = (await db.execute(select(Question).where(Question.id == last_question_id))).scalar_one_or_none()
         if not last_q:

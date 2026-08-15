@@ -24,7 +24,7 @@ export default function App() {
       const iv = await api.createInterview(jobDescription);
       const interviewId = iv.id;
 
-      await api.uploadResume(file, interviewId);
+      const upload = await api.uploadResume(file, interviewId);
 
       const newInterview = {
         id: interviewId,
@@ -35,7 +35,14 @@ export default function App() {
       setInterviews((prev) => [newInterview, ...prev]);
       setActiveId(interviewId);
       setMessages([]);
-      addMessage('hr', 'Welcome! Your resume has been uploaded and the interview is ready. Click "Next Question" to begin.');
+
+      // The upload succeeds even when question generation fails; say so
+      // instead of claiming the interview is ready.
+      if (upload.questions_generated > 0) {
+        addMessage('hr', 'Welcome! Your resume has been uploaded and the interview is ready. Click "Next Question" to begin.');
+      } else {
+        addMessage('hr', 'Your resume was uploaded, but preparing the questions did not finish. Click "Next Question" to try again.');
+      }
     } catch (err) {
       setError(err.message);
     } finally {

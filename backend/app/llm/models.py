@@ -3,7 +3,10 @@ from pydantic import BaseModel, Field
 
 class LLMRequest(BaseModel):
     messages: List[Dict[str, str]] = Field(..., description="List of chat messages (e.g., [{'role': 'user', 'content': '...'}])")
-    model: str = Field(default="openai/gpt-4o-mini", description="OpenRouter model identifier")
+    model: Optional[str] = Field(
+        default=None,
+        description="OpenRouter model identifier. Defaults to settings.OPENROUTER_MODEL."
+    )
     temperature: float = Field(default=0.7, ge=0.0, le=2.0)
     max_tokens: Optional[int] = Field(default=None, ge=1)
     response_format: Optional[Dict[str, str]] = Field(default=None, description="e.g., {'type': 'json_object'}")

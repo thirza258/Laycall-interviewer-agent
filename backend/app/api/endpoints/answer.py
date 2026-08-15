@@ -10,6 +10,12 @@ from app.db.models.answer import Answer
 from app.schemas.answer import AnswerCreate, AnswerResponse
 
 from app.llm.client import OpenRouterClient, get_openrouter_client
+from app.llm.exceptions import (
+    OpenRouterAPIError,
+    OpenRouterError,
+    OpenRouterRateLimitError,
+    OpenRouterTimeoutError,
+)
 from app.agents.answer_evaluator import AnswerEvaluationAgent
 from app.services.evaluation_service import EvaluationService
 
@@ -104,6 +110,26 @@ async def evaluate_answer(
                 "job_description": answer.question.interview.job_descriptions[0].raw_text[:500]
                 if answer.question.interview.job_descriptions else None
             }
+        )
+    except OpenRouterRateLimitError as e:
+        logger.warning(f"Rate limited while evaluating answer {answer_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="The model is rate limited right now. Please wait a moment and try again."
+        )
+    except (OpenRouterTimeoutError, OpenRouterAPIError) as e:
+        logger.error(f"Could not reach the model while evaluating answer {answer_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Could not reach the evaluation model. Your answer was saved — please try again."
+        )
+    except OpenRouterError as e:
+        # Truncated, empty or malformed completion: the call reached the model
+        # but the answer is unusable.
+        logger.error(f"Unusable model response while evaluating answer {answer_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="The evaluation model returned an unusable response. Your answer was saved — please try again."
         )
     except Exception as e:
         logger.error(f"LLM evaluation failed for answer {answer_id}: {e}", exc_info=True)

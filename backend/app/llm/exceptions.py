@@ -14,6 +14,18 @@ class OpenRouterValidationError(OpenRouterError):
     """Raised when the API response fails Pydantic validation."""
     pass
 
+class OpenRouterTruncatedError(OpenRouterError):
+    """Raised when the model hit its token budget and returned a partial answer."""
+    pass
+
+class OpenRouterEmptyResponseError(OpenRouterError):
+    """
+    Raised when OpenRouter answers HTTP 200 but the body carries no usable
+    completion (an inline `error` payload, no `choices`, or blank content).
+    The OpenAI SDK cannot see these, so they are retried by this client.
+    """
+    pass
+
 class OpenRouterAPIError(OpenRouterError):
     """Raised for general API errors (e.g., 5xx, invalid payload)."""
     def __init__(self, message: str, status_code: int, error_detail: str = ""):

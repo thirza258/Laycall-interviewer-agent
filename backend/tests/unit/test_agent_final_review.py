@@ -113,7 +113,7 @@ class TestFinalReviewAgent:
 
         call_args = mock_llm_client.generate_completion.call_args[0][0]
         assert call_args.temperature == 0.2
-        assert call_args.max_tokens == 800
+        assert call_args.max_tokens == 2000
 
     @pytest.mark.asyncio
     async def test_generate_handles_empty_lists(self, agent, mock_llm_client):
