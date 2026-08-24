@@ -18,6 +18,7 @@ from app.llm.exceptions import (
 )
 from app.agents.answer_evaluator import AnswerEvaluationAgent
 from app.services.evaluation_service import EvaluationService
+from app.services.interview_finalization import InterviewFinalizationService
 
 router = APIRouter(prefix="/api/v1/interviews", tags=["answers"])
 logger = logging.getLogger(__name__)
@@ -58,7 +59,7 @@ async def submit_answer(
 
     new_answer = Answer(
         question_id=payload.question_id,
-        answer=payload.answer.strip()
+        answer=payload.answer,  # AnswerCreate strips and rejects blank input
     )
     db.add(new_answer)
     await db.commit()
@@ -96,8 +97,11 @@ async def evaluate_answer(
             Question.interview_id == interview_id
         )
     )
-    answer = result.scalar_one_or_none()
-    
+    # unique() is mandatory here: joined eager loading against a collection
+    # (Interview.job_descriptions) makes SQLAlchemy refuse to return rows
+    # otherwise, which turned every evaluation into a 500.
+    answer = result.unique().scalar_one_or_none()
+
     if not answer:
         raise HTTPException(status_code=404, detail="Answer not found")
 
@@ -145,6 +149,17 @@ async def evaluate_answer(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=str(e)
+        )
+
+    # With every question answered and evaluated, build the final report.
+    # Best effort: the evaluation is already saved, and GET /results retries
+    # this, so a failure here must not turn a good evaluation into an error.
+    try:
+        await InterviewFinalizationService(db, llm_client).finalize_if_complete(interview_id)
+    except Exception as e:
+        logger.error(
+            f"Final assessment failed for interview {interview_id}: {e}",
+            exc_info=True
         )
 
     return {

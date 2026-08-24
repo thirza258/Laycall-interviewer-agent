@@ -83,6 +83,34 @@ npm run dev
 
 You'll need a running PostgreSQL and MinIO instance (or use `docker compose up db minio minio-init` from the root to run just those).
 
+## Tests
+
+The backend suite needs no database, object storage or API key: SQLite stands
+in for PostgreSQL, and the OpenRouter and MinIO clients are stubbed at their
+boundaries.
+
+```bash
+cd backend
+pytest                                          # unit + integration
+pytest --cov=app --cov=main --cov-report=term    # with coverage
+```
+
+To run the same tests against a real PostgreSQL instance:
+
+```bash
+TEST_DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/interview_test pytest
+```
+
+Frontend:
+
+```bash
+cd frontend
+npm install
+npm run lint
+npm test      # api client unit tests
+npm run build
+```
+
 ## Services
 
 | Service | Port | URL |
@@ -106,6 +134,7 @@ Copy `.env.example` to `.env` and fill in the values:
 | `OPENROUTER_CONNECT_TIMEOUT` | No | Connect timeout in seconds (default: `10`) |
 | `OPENROUTER_MAX_RETRIES` | No | Retries for transient upstream failures (default: `3`) |
 | `QUESTION_GENERATION_TIMEOUT` | No | Ceiling for the full question pipeline in seconds (default: `240`) |
+| `DATABASE_URL` | No | Complete SQLAlchemy URL; replaces the `DB_*` values below |
 | `DB_USER` | No | PostgreSQL user |
 | `DB_PASSWORD` | No | PostgreSQL password |
 | `DB_NAME` | No | PostgreSQL database name |
@@ -168,9 +197,9 @@ Interviewer/
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/health` | Health check |
-| `POST` | `/api/v1/resumes` | Upload and parse a resume |
-| `POST` | `/api/v1/interviews` | Create an interview |
-| `GET` | `/api/v1/interviews/{id}` | Get interview details |
-| `POST` | `/api/v1/interviews/{id}/start` | Start interview session |
-| `POST` | `/api/v1/answers/{question_id}` | Submit an answer |
-| `GET` | `/api/v1/interviews/{id}/result` | Get final evaluation |
+| `POST` | `/api/v1/interviews` | Create an interview and store its job description |
+| `POST` | `/api/v1/resumes` | Upload a resume, extract its text and generate the questions |
+| `GET` | `/api/v1/interviews/{id}/question` | Next question (`?last_question_id=` for the one after it) |
+| `POST` | `/api/v1/interviews/{id}/answers` | Submit an answer |
+| `POST` | `/api/v1/interviews/{id}/answers/{answer_id}/evaluate` | Score an answer; the last one also writes the final report |
+| `GET` | `/api/v1/interviews/{id}/results` | Final report (scores are null until every question is answered) |

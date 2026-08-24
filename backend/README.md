@@ -35,10 +35,8 @@ venv\Scripts\activate      # Windows
 
 ### 3. Install dependencies
 
-There is no lock file in the repo. Install the required packages manually:
-
 ```bash
-pip install fastapi uvicorn[standard] sqlalchemy[asyncio] asyncpg alembic pydantic-settings python-dotenv openai minio python-multipart
+pip install -r requirements.txt
 ```
 
 ### 4. Configure environment variables
@@ -50,31 +48,32 @@ DEBUG=True
 
 DB_USER=interview_user
 DB_PASSWORD=interview_password
-DB_HOST=100.104.41.9
-DB_PORT=5500
+DB_HOST=localhost
+DB_PORT=5432
 DB_NAME=interview_db
 
 OPENROUTER_API_KEY=sk-or-v1-...
 OPENROUTER_MODEL=google/gemma-4-26b-a4b-it
 
-MINIO_ENDPOINT=s3.nevatal.tech
-MINIO_ACCESS_KEY=minioadmin
-MINIO_SECRET_KEY=ubuntuadminpassword
+MINIO_ENDPOINT=localhost:9000
+MINIO_ACCESS_KEY=your_access_key
+MINIO_SECRET_KEY=your_secret_key
 MINIO_BUCKET=interview
-MINIO_SECURE=True
-MINIO_PUBLIC_URL=https://s3.nevatal.tech
+MINIO_SECURE=False
+MINIO_PUBLIC_URL=http://localhost:9000
 ```
 
 | Variable | Description |
 |---|---|
 | `DB_*` | PostgreSQL connection details |
+| `DATABASE_URL` | Complete SQLAlchemy URL; replaces the `DB_*` values when set |
 | `OPENROUTER_API_KEY` | Your OpenRouter API key |
 | `OPENROUTER_MODEL` | Model identifier on OpenRouter — used by every agent |
 | `OPENROUTER_TIMEOUT` | Read timeout per LLM call, seconds (default `90`) |
 | `OPENROUTER_CONNECT_TIMEOUT` | Connect timeout, seconds (default `10`) |
 | `OPENROUTER_MAX_RETRIES` | Retries for transient upstream failures (default `3`) |
 | `QUESTION_GENERATION_TIMEOUT` | Ceiling for the full question pipeline, seconds (default `240`) |
-| `MINIO_*` | S3-compatible storage credentials and bucket |
+| `MINIO_*` | S3-compatible storage credentials and bucket. Unset, the app still starts and uploads fail with "Object storage is not configured" |
 
 ### 5. Run database migrations
 
@@ -98,6 +97,22 @@ curl http://localhost:8000/health
 ```
 
 Interactive docs are available at `http://localhost:8000/docs`.
+
+## Tests
+
+No database, object storage or API key required — SQLite stands in for
+PostgreSQL and the OpenRouter and MinIO clients are stubbed:
+
+```bash
+pytest                                          # unit + integration
+pytest --cov=app --cov=main --cov-report=term    # with coverage
+TEST_DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/interview_test pytest
+```
+
+`tests/unit` covers each module in isolation, `tests/integration` drives the
+endpoints and services against a real (SQLite) session, and
+`tests/integration/test_flow_end_to_end.py` runs one interview from resume
+upload to final report.
 
 ## Project Structure
 
@@ -130,14 +145,16 @@ backend/
 
 ## API Endpoints
 
+All routes are mounted under `/api/v1`.
+
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/health` | Health check |
-| `POST` | `/resumes/upload` | Upload & parse a resume |
-| `POST` | `/interviews` | Create an interview spec |
-| `GET` | `/interviews/{id}` | Get interview details |
-| `POST` | `/interviews/{id}/start` | Start an interview session |
-| `POST` | `/answers/{question_id}` | Submit an answer for evaluation |
-| `GET` | `/interviews/{id}/result` | Get final interview result |
+| `GET` | `/health` | Health check (not versioned) |
+| `POST` | `/api/v1/interviews` | Create an interview and store its job description |
+| `POST` | `/api/v1/resumes` | Upload a resume, extract its text and generate the questions |
+| `GET` | `/api/v1/interviews/{id}/question` | Next question (`?last_question_id=` for the one after it) |
+| `POST` | `/api/v1/interviews/{id}/answers` | Submit an answer |
+| `POST` | `/api/v1/interviews/{id}/answers/{answer_id}/evaluate` | Score an answer; the last one also writes the final report |
+| `GET` | `/api/v1/interviews/{id}/results` | Final report (scores are null until every question is answered) |
 
 Full schema available at `/docs` and `/redoc`.

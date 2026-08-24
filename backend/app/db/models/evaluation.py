@@ -16,12 +16,18 @@ class Evaluation(Base):
     )
     technical_score: Mapped[int] = mapped_column(
         Integer,
-        CheckConstraint("technical_score >= 0 AND technical_score <= 10"),
+        CheckConstraint(
+            "technical_score >= 0 AND technical_score <= 10",
+            name="ck_evaluations_technical_score_range",
+        ),
         comment="Score 0-10 for technical accuracy"
     )
     communication_score: Mapped[int] = mapped_column(
         Integer,
-        CheckConstraint("communication_score >= 0 AND communication_score <= 10"),
+        CheckConstraint(
+            "communication_score >= 0 AND communication_score <= 10",
+            name="ck_evaluations_communication_score_range",
+        ),
         comment="Score 0-10 for communication clarity"
     )
     feedback: Mapped[str] = mapped_column(Text, comment="Constructive feedback for the candidate")

@@ -14,6 +14,7 @@ from app.schemas.interview_result import InterviewResultsResponse
 from app.db.models.interview_spec import InterviewSpec
 from app.llm.client import OpenRouterClient, get_openrouter_client
 from app.services.interview_orchestration import InterviewOrchestrationService
+from app.services.interview_finalization import InterviewFinalizationService
 
 router = APIRouter(prefix="/api/v1/interviews", tags=["interviews"])
 logger = logging.getLogger(__name__)
@@ -150,29 +151,41 @@ async def get_next_question(
 )
 async def get_interview_results(
     interview_id: int,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    llm_client: OpenRouterClient = Depends(get_openrouter_client)
 ) -> InterviewResultsResponse:
     """
     Fetches the final assessment from interview_specs.
-    Returns 404 if interview not found or not completed.
-    Returns partial data if assessment not yet generated.
+    Returns 404 if the interview does not exist.
+    Returns partial data while the interview is still in progress.
     """
-    # 1. Verify interview exists and is completed
     interview = (await db.execute(
         select(Interview).where(Interview.id == interview_id)
     )).scalar_one_or_none()
-    
+
     if not interview:
         raise HTTPException(status_code=404, detail="Interview not found")
-    
-    if interview.status != InterviewStatus.COMPLETED:
-        pass  # Optional: raise HTTPException(400, detail="Interview not yet completed")
 
     spec = (await db.execute(
         select(InterviewSpec).where(InterviewSpec.interview_id == interview_id)
     )).scalar_one_or_none()
-    
+
     assessment = spec.json_data.get("final_assessment") if spec and spec.json_data else None
+
+    if assessment is None:
+        # The assessment is normally written when the last answer is
+        # evaluated. If that call failed, build it here instead of leaving a
+        # finished interview without a report — the same retry-on-read the
+        # question pipeline does above. Returns None while questions remain.
+        try:
+            assessment = await InterviewFinalizationService(
+                db, llm_client
+            ).finalize_if_complete(interview_id)
+        except Exception as e:
+            logger.error(
+                f"Final assessment failed for interview {interview_id}: {e}",
+                exc_info=True
+            )
 
     response_data = {
         "interview_id": interview.id,

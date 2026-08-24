@@ -59,8 +59,9 @@ class TestFinalReviewAgent:
         assert result.overall_score == 75
         assert result.technical_score == 70
         assert result.communication_score == 80
-        assert len(result.strengths) == 2
-        assert len(result.weaknesses) == 2
+        assert result.strengths == ["Good basics", "Clear communication"]
+        assert result.weaknesses == ["Lacks depth in async"]
+        assert len(result.recommendations) == 2
 
     @pytest.mark.asyncio
     async def test_generate_includes_job_context(self, agent, mock_llm_client, questions, answers, evaluations):

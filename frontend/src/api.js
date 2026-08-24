@@ -1,13 +1,28 @@
 const API_BASE = '/api/v1';
 
+// FastAPI answers a 422 with a list of field errors; passing that array
+// straight to Error() renders "[object Object]" in the UI.
+export function errorMessage(payload, res) {
+  const detail = payload?.detail;
+  if (typeof detail === 'string' && detail) return detail;
+  if (Array.isArray(detail) && detail.length) {
+    return detail.map((item) => item.msg || String(item)).join('; ');
+  }
+  return `Request failed: ${res.status}`;
+}
+
+async function readError(res) {
+  const payload = await res.json().catch(() => null);
+  return new Error(errorMessage(payload, res));
+}
+
 async function request(url, options = {}) {
   const res = await fetch(`${API_BASE}${url}`, {
     headers: { 'Content-Type': 'application/json', ...options.headers },
     ...options,
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail || `Request failed: ${res.status}`);
+    throw await readError(res);
   }
   return res.json();
 }
@@ -18,8 +33,7 @@ export async function uploadResume(file, interviewId) {
   form.append('interview_id', interviewId);
   const res = await fetch(`${API_BASE}/resumes`, { method: 'POST', body: form });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail || `Upload failed: ${res.status}`);
+    throw await readError(res);
   }
   return res.json();
 }

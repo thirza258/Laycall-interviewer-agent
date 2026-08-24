@@ -89,3 +89,46 @@ class TestSettings:
         s1 = get_settings()
         s2 = get_settings()
         assert s1 is s2
+
+
+class TestDatabaseUrlOverride:
+    def test_db_url_overrides_the_components(self):
+        """A full URL wins over the DB_* parts, which is how the suite and
+        single-URL deployments point at another database."""
+        with patch.dict(os.environ, {"DATABASE_URL": "sqlite+aiosqlite:///:memory:"}, clear=True):
+            settings = Settings(_env_file=None)
+
+            assert settings.DB_URL == "sqlite+aiosqlite:///:memory:"
+            assert settings.DATABASE_URL == "sqlite+aiosqlite:///:memory:"
+
+    def test_db_url_alias_is_also_accepted(self):
+        with patch.dict(os.environ, {"DB_URL": "postgresql+asyncpg://a:b@c:1/d"}, clear=True):
+            assert Settings(_env_file=None).DATABASE_URL == "postgresql+asyncpg://a:b@c:1/d"
+
+    def test_components_are_used_when_no_url_is_set(self):
+        env = {"DB_USER": "u", "DB_PASSWORD": "p", "DB_HOST": "h", "DB_PORT": "1", "DB_NAME": "n"}
+        with patch.dict(os.environ, env, clear=True):
+            settings = Settings(_env_file=None)
+
+            assert settings.DB_URL is None
+            assert settings.DATABASE_URL == "postgresql+asyncpg://u:p@h:1/n"
+
+    def test_environment_is_read_at_construction_not_at_import(self):
+        """Defaults used to be captured by os.getenv() in the class body, so a
+        value exported after import was ignored and the settings depended on
+        import order."""
+        with patch.dict(os.environ, {"DB_NAME": "first"}, clear=True):
+            assert Settings(_env_file=None).DB_NAME == "first"
+        with patch.dict(os.environ, {"DB_NAME": "second"}, clear=True):
+            assert Settings(_env_file=None).DB_NAME == "second"
+
+    def test_storage_settings_are_optional(self):
+        """The app has to import and migrate on a host with no storage
+        credentials; uploads fail on their own instead."""
+        with patch.dict(os.environ, {}, clear=True):
+            settings = Settings(_env_file=None)
+
+            assert settings.MINIO_ENDPOINT is None
+            assert settings.MINIO_ACCESS_KEY is None
+            assert settings.MINIO_SECRET_KEY is None
+            assert settings.MINIO_PUBLIC_URL is None

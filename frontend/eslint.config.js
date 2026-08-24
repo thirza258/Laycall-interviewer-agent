@@ -18,4 +18,9 @@ export default defineConfig([
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
   },
+  {
+    // Config files run in Node, so they see process/__dirname, not window.
+    files: ['*.config.js'],
+    languageOptions: { globals: globals.node },
+  },
 ])

@@ -15,6 +15,11 @@ class MinIOClient:
         """Get or create the MinIO client instance (singleton pattern)."""
         if cls._instance is None:
             settings = get_settings()
+            if not settings.MINIO_ENDPOINT:
+                raise RuntimeError(
+                    "Object storage is not configured: set MINIO_ENDPOINT, "
+                    "MINIO_ACCESS_KEY and MINIO_SECRET_KEY to enable resume uploads."
+                )
             cls._instance = Minio(
                 endpoint=settings.MINIO_ENDPOINT,
                 access_key=settings.MINIO_ACCESS_KEY,

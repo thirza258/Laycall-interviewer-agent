@@ -237,7 +237,7 @@ class TestEvaluateAnswer:
         db_session.add(answer)
         await db_session.commit()
 
-        with patch("app.api.endpoints.answer.AnswerEvaluationAgent") as mock_agent_cls:
+        with patch("app.api.endpoints.answers.AnswerEvaluationAgent") as mock_agent_cls:
             mock_agent = mock_agent_cls.return_value
             mock_evaluation = AsyncMock()
             mock_evaluation.technical_score = 9
@@ -298,7 +298,7 @@ class TestEvaluateAnswer:
         db_session.add(evaluation)
         await db_session.commit()
 
-        with patch("app.api.endpoints.answer.AnswerEvaluationAgent") as mock_agent_cls:
+        with patch("app.api.endpoints.answers.AnswerEvaluationAgent") as mock_agent_cls:
             mock_agent = mock_agent_cls.return_value
             mock_eval = AsyncMock()
             mock_eval.technical_score = 9
@@ -359,7 +359,7 @@ class TestEvaluateAnswer:
         db_session.add(answer)
         await db_session.commit()
 
-        with patch("app.api.endpoints.answer.AnswerEvaluationAgent") as mock_agent_cls:
+        with patch("app.api.endpoints.answers.AnswerEvaluationAgent") as mock_agent_cls:
             mock_agent = mock_agent_cls.return_value
             mock_eval = AsyncMock()
             mock_eval.technical_score = 7
@@ -397,7 +397,7 @@ class TestEvaluateAnswer:
         db_session.add(answer)
         await db_session.commit()
 
-        with patch("app.api.endpoints.answer.AnswerEvaluationAgent") as mock_agent_cls:
+        with patch("app.api.endpoints.answers.AnswerEvaluationAgent") as mock_agent_cls:
             mock_agent = mock_agent_cls.return_value
             mock_agent.evaluate = AsyncMock(side_effect=Exception("LLM timeout"))
 
@@ -447,6 +447,8 @@ class TestAnswerModelRelationships:
         db_session.add(evaluation)
         await db_session.commit()
 
-        await db_session.refresh(answer)
+        # Name the relationship: a plain refresh leaves it unloaded, and a
+        # lazy load on an async session raises MissingGreenlet.
+        await db_session.refresh(answer, ["evaluation"])
         assert answer.evaluation is not None
         assert answer.evaluation.technical_score == 9

@@ -3,6 +3,9 @@
 
 # Python
 __pycache__/
+.coverage
+htmlcov/
+.pytest_cache/
 *.py[cod]
 *$py.class
 *.egg-info/

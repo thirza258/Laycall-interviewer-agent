@@ -4,7 +4,7 @@ from fastapi import FastAPI
 
 from app.core.config import get_settings
 from app.db.session import engine 
-from app.api.endpoints import resume, interviews, answer
+from app.api.endpoints import resumes, interviews, answers
 from app.llm.client import get_openrouter_client
 
 
@@ -21,13 +21,31 @@ async def lifespan(app: FastAPI):
     yield
 
     logger.info("Shutting down gracefully...")
+    await _release_resources()
+
+
+async def _release_resources() -> None:
+    """Close both connection pools, independently.
+
+    One shared try block meant a failure closing the database pool also
+    skipped closing the LLM pool.
+    """
     try:
         await engine.dispose()  # Close async DB connection pool
-        client = get_openrouter_client()
-        await client.close()    # Close LLM HTTP connection pool
-        get_openrouter_client.cache_clear()  # Reset singleton for clean state
     except Exception as e:
-        logger.warning(f"Cleanup failed: {e}")
+        logger.warning(f"Database engine cleanup failed: {e}")
+
+    # Only touch the LLM client if something actually built one — calling the
+    # factory here would construct a fresh client just to close it.
+    if not get_openrouter_client.cache_info().currsize:
+        return
+
+    try:
+        await get_openrouter_client().close()  # Close LLM HTTP connection pool
+    except Exception as e:
+        logger.warning(f"LLM client cleanup failed: {e}")
+    finally:
+        get_openrouter_client.cache_clear()  # Reset singleton for clean state
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -36,9 +54,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.include_router(resume.router)
+app.include_router(resumes.router)
 app.include_router(interviews.router)
-app.include_router(answer.router)
+app.include_router(answers.router)
 
 @app.get("/health")
 async def health_check():

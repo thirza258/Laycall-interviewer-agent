@@ -1,6 +1,6 @@
 import pytest
 from pydantic import ValidationError
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.schemas.resume import (
     ResumeCreate,
@@ -42,7 +42,7 @@ class TestResumeSchemas:
             ResumeCreate(interview_id=-1)
 
     def test_resume_response_from_attributes(self):
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         data = {"id": 1, "interview_id": 2, "file_path": "/a/b.pdf", "raw_text": "text", "created_at": now}
         rr = ResumeResponse.model_validate(data)
         assert rr.id == 1
@@ -82,7 +82,7 @@ class TestInterviewSchemas:
             InterviewCreate(job_description="A" * 20, resume_id=0)
 
     def test_job_description_response(self):
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         jdr = JobDescriptionResponse.model_validate({
             "id": 1, "interview_id": 1, "raw_text": "desc", "created_at": now
         })
@@ -111,6 +111,20 @@ class TestAnswerSchemas:
     def test_answer_create_too_long(self):
         with pytest.raises(ValidationError):
             AnswerCreate(question_id=1, answer="x" * 5001)
+
+
+    def test_answer_create_rejects_whitespace_only(self):
+        """The answer is stored stripped, so a blank submission must not pass
+        validation and land in the database as an empty string."""
+        with pytest.raises(ValidationError):
+            AnswerCreate(question_id=1, answer="   \t\n  ")
+
+    def test_answer_create_strips_surrounding_whitespace(self):
+        assert AnswerCreate(question_id=1, answer="  my answer  ").answer == "my answer"
+
+    def test_answer_create_rejects_non_positive_question_id(self):
+        with pytest.raises(ValidationError):
+            AnswerCreate(question_id=0, answer="A valid answer.")
 
 
 class TestAgentSchemas:

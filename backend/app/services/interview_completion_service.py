@@ -26,8 +26,10 @@ class InterviewCompletionService:
         )
         total_questions = (await self.db.execute(total_stmt)).scalar_one()
 
-        # Count answered questions (via JOIN with answers)
-        answered_stmt = select(func.count(Answer.id)).join(
+        # Count answered questions. Counting answer rows would let a
+        # candidate who re-answers one question look "done" while other
+        # questions are still untouched, so count distinct questions.
+        answered_stmt = select(func.count(func.distinct(Answer.question_id))).join(
             Question, Answer.question_id == Question.id
         ).where(Question.interview_id == interview_id)
         answered_count = (await self.db.execute(answered_stmt)).scalar_one()

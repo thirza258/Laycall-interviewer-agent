@@ -2,7 +2,11 @@ from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
 
 class LLMRequest(BaseModel):
-    messages: List[Dict[str, str]] = Field(..., description="List of chat messages (e.g., [{'role': 'user', 'content': '...'}])")
+    messages: List[Dict[str, str]] = Field(
+        ...,
+        min_length=1,
+        description="List of chat messages (e.g., [{'role': 'user', 'content': '...'}])",
+    )
     model: Optional[str] = Field(
         default=None,
         description="OpenRouter model identifier. Defaults to settings.OPENROUTER_MODEL."

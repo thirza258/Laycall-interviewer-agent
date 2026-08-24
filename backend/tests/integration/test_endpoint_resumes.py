@@ -144,8 +144,14 @@ class TestResumeUploadEdgeCases:
         db_session.add(interview)
         await db_session.commit()
 
+        # The multipart parser hands the endpoint a starlette UploadFile, so
+        # patching fastapi's subclass leaves read() working and the 500 comes
+        # from storage instead — a pass for the wrong reason.
         with patch("app.api.endpoints.resumes.validate_file") as mock_validate, \
-             patch("fastapi.UploadFile.read", new_callable=AsyncMock) as mock_read:
+             patch("app.api.endpoints.resumes.upload_to_minio") as mock_upload, \
+             patch(
+                 "starlette.datastructures.UploadFile.read", new_callable=AsyncMock
+             ) as mock_read:
 
             mock_validate.return_value = None
             mock_read.side_effect = Exception("Simulated read failure")
@@ -157,6 +163,8 @@ class TestResumeUploadEdgeCases:
             )
 
         assert response.status_code == 500
+        assert response.json()["detail"] == "Failed to process uploaded file"
+        mock_upload.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_upload_resume_minio_failure(self, test_client, db_session):

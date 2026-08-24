@@ -29,6 +29,7 @@ class OpenRouterEmptyResponseError(OpenRouterError):
 class OpenRouterAPIError(OpenRouterError):
     """Raised for general API errors (e.g., 5xx, invalid payload)."""
     def __init__(self, message: str, status_code: int, error_detail: str = ""):
+        self.message = message
         self.status_code = status_code
         self.error_detail = error_detail
         super().__init__(f"API Error {status_code}: {message} - {error_detail}")

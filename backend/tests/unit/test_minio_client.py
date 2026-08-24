@@ -1,4 +1,8 @@
+import tempfile
+from pathlib import Path
+
 import pytest
+from minio.error import S3Error
 from unittest.mock import patch, MagicMock
 
 from app.core.minio_client import MinIOClient
@@ -171,3 +175,81 @@ class TestMinIOClient:
 
         url = MinIOClient.get_object_url("file.pdf", bucket="custom-bucket")
         assert url == "https://pub.example.com/custom-bucket/file.pdf"
+
+
+class TestMinIOClientConfiguration:
+    def setup_method(self):
+        MinIOClient._instance = None
+
+    @patch("app.core.minio_client.get_settings")
+    def test_missing_endpoint_names_the_problem(self, mock_settings):
+        """Without this guard the minio SDK fails deep inside on endpoint=None."""
+        mock_settings.return_value = MagicMock(MINIO_ENDPOINT=None)
+
+        with pytest.raises(RuntimeError, match="Object storage is not configured"):
+            MinIOClient.get_client()
+
+    @patch("app.core.minio_client.get_settings")
+    def test_empty_endpoint_is_also_rejected(self, mock_settings):
+        mock_settings.return_value = MagicMock(MINIO_ENDPOINT="")
+
+        with pytest.raises(RuntimeError):
+            MinIOClient.get_client()
+
+
+class TestDownloadToTemp:
+    def setup_method(self):
+        MinIOClient._instance = None
+
+    @staticmethod
+    def _settings():
+        return MagicMock(
+            MINIO_ENDPOINT="localhost:9000",
+            MINIO_ACCESS_KEY="access",
+            MINIO_SECRET_KEY="secret",
+            MINIO_SECURE=False,
+            MINIO_BUCKET="test-bucket",
+            MINIO_PUBLIC_URL="http://localhost:9000",
+        )
+
+    @patch("app.core.minio_client.Minio")
+    @patch("app.core.minio_client.get_settings")
+    def test_downloads_to_a_temp_file_keeping_the_extension(self, mock_settings, mock_minio_cls):
+        mock_settings.return_value = self._settings()
+        minio = MagicMock()
+        minio.bucket_exists.return_value = True
+        mock_minio_cls.return_value = minio
+
+        path = MinIOClient.download_to_temp("resumes/1/cv.pdf")
+
+        assert path.endswith(".pdf")
+        minio.fget_object.assert_called_once_with(
+            bucket_name="test-bucket", object_name="resumes/1/cv.pdf", file_path=path
+        )
+        Path(path).unlink(missing_ok=True)
+
+    @patch("app.core.minio_client.Minio")
+    @patch("app.core.minio_client.get_settings")
+    def test_failed_download_removes_the_temp_file(self, mock_settings, mock_minio_cls):
+        """A leaked temp file per failed download would fill the disk."""
+        mock_settings.return_value = self._settings()
+        minio = MagicMock()
+        minio.bucket_exists.return_value = True
+        minio.fget_object.side_effect = S3Error(
+            "NoSuchKey", "missing", "resource", "req-1", "host-1", None
+        )
+        mock_minio_cls.return_value = minio
+
+        created = []
+        real_named_temp_file = tempfile.NamedTemporaryFile
+
+        def tracking_temp_file(*args, **kwargs):
+            handle = real_named_temp_file(*args, **kwargs)
+            created.append(handle.name)
+            return handle
+
+        with patch("app.core.minio_client.tempfile.NamedTemporaryFile", tracking_temp_file):
+            with pytest.raises(S3Error):
+                MinIOClient.download_to_temp("resumes/1/missing.pdf")
+
+        assert created and not Path(created[0]).exists()

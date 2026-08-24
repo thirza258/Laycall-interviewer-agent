@@ -1,6 +1,6 @@
 fastapi==0.115.6
 uvicorn[standard]==0.34.0
-sqlalchemy[asyncio]==2.0.36
+sqlalchemy[asyncio]==2.0.52
 asyncpg==0.30.0
 psycopg2-binary==2.9.10
 alembic==1.14.1
@@ -12,8 +12,9 @@ python-multipart==0.0.19
 PyPDF2==3.0.1
 python-docx==1.1.2
 
-# Testing
+# Testing — the suite runs against SQLite, so no database server is needed
 pytest==8.3.4
 pytest-asyncio==0.25.2
 pytest-cov==6.0.0
 httpx==0.28.1
+aiosqlite==0.22.1

@@ -1,4 +1,7 @@
 import io
+from pathlib import Path
+from unittest.mock import patch
+
 import pytest
 
 from app.services.resume_parser import (
@@ -6,6 +9,7 @@ from app.services.resume_parser import (
     extract_text_from_docx_bytes,
     extract_text_from_file_path,
     extract_resume_text_from_bytes,
+    extract_resume_text_from_minio,
 )
 
 
@@ -75,3 +79,62 @@ class TestExtractTextFromFilePath:
     def test_nonexistent_file_returns_empty(self):
         result = extract_text_from_file_path("/nonexistent/path/file.pdf")
         assert result == ""
+
+
+def _write_docx(path: Path, text: str) -> Path:
+    from docx import Document
+
+    document = Document()
+    document.add_paragraph(text)
+    document.save(path)
+    return path
+
+
+class TestExtractFromMinio:
+    def test_extracts_text_from_the_downloaded_copy(self, tmp_path):
+        local = _write_docx(tmp_path / "cv.docx", "Ada Lovelace — Engineer")
+
+        with patch(
+            "app.services.resume_parser.MinIOClient.download_to_temp",
+            return_value=str(local),
+        ) as download:
+            text = extract_resume_text_from_minio("resumes/1/cv.docx")
+
+        download.assert_called_once_with("resumes/1/cv.docx")
+        assert "Ada Lovelace" in text
+
+    def test_removes_the_downloaded_copy(self, tmp_path):
+        local = _write_docx(tmp_path / "cv.docx", "Some text")
+
+        with patch(
+            "app.services.resume_parser.MinIOClient.download_to_temp",
+            return_value=str(local),
+        ):
+            extract_resume_text_from_minio("resumes/1/cv.docx")
+
+        assert not local.exists()
+
+    def test_unsupported_extension_skips_extraction(self, tmp_path):
+        local = tmp_path / "cv.txt"
+        local.write_text("plain text resume")
+
+        with patch(
+            "app.services.resume_parser.MinIOClient.download_to_temp",
+            return_value=str(local),
+        ):
+            assert extract_resume_text_from_minio("resumes/1/cv.txt") == ""
+
+    def test_cleans_up_when_extraction_raises(self, tmp_path):
+        local = _write_docx(tmp_path / "cv.docx", "text")
+
+        with patch(
+            "app.services.resume_parser.MinIOClient.download_to_temp",
+            return_value=str(local),
+        ), patch(
+            "app.services.resume_parser.extract_text_from_file_path",
+            side_effect=RuntimeError("parser crashed"),
+        ):
+            with pytest.raises(RuntimeError):
+                extract_resume_text_from_minio("resumes/1/cv.docx")
+
+        assert not local.exists()
