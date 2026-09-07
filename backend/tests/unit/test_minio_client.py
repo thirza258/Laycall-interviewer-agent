@@ -1,4 +1,5 @@
 import tempfile
+from io import BytesIO
 from pathlib import Path
 
 import pytest
@@ -253,3 +254,76 @@ class TestDownloadToTemp:
                 MinIOClient.download_to_temp("resumes/1/missing.pdf")
 
         assert created and not Path(created[0]).exists()
+
+
+class TestStorageFailuresPropagate:
+    """S3 failures must reach the caller, not be swallowed into a false success.
+
+    Every upload path returns a URL built by string formatting, so a swallowed
+    error would hand back a perfectly plausible URL for an object that was
+    never stored.
+    """
+
+    def setup_method(self):
+        MinIOClient._instance = None
+
+    @staticmethod
+    def _settings():
+        return MagicMock(
+            MINIO_ENDPOINT="localhost:9000",
+            MINIO_ACCESS_KEY="access",
+            MINIO_SECRET_KEY="secret",
+            MINIO_SECURE=False,
+            MINIO_BUCKET="test-bucket",
+            MINIO_PUBLIC_URL="http://localhost:9000",
+        )
+
+    @staticmethod
+    def _s3_error(code="AccessDenied"):
+        return S3Error(code, "denied", "resource", "req-1", "host-1", None)
+
+    @patch("app.core.minio_client.Minio")
+    @patch("app.core.minio_client.get_settings")
+    def test_bucket_creation_failure_propagates(self, mock_settings, mock_minio_cls):
+        """A bucket that cannot be created fails get_client, not later writes."""
+        mock_settings.return_value = self._settings()
+        minio = MagicMock()
+        minio.bucket_exists.return_value = False
+        minio.make_bucket.side_effect = self._s3_error()
+        mock_minio_cls.return_value = minio
+
+        with pytest.raises(S3Error):
+            MinIOClient.get_client()
+
+    @patch("app.core.minio_client.Minio")
+    @patch("app.core.minio_client.get_settings")
+    def test_upload_file_failure_propagates(
+        self, mock_settings, mock_minio_cls, tmp_path
+    ):
+        mock_settings.return_value = self._settings()
+        minio = MagicMock()
+        minio.bucket_exists.return_value = True
+        minio.fput_object.side_effect = self._s3_error()
+        mock_minio_cls.return_value = minio
+
+        resume = tmp_path / "cv.pdf"
+        resume.write_bytes(b"%PDF-1.4")
+
+        with pytest.raises(S3Error):
+            MinIOClient.upload_file(file_path=resume, object_name="resumes/1/cv.pdf")
+
+    @patch("app.core.minio_client.Minio")
+    @patch("app.core.minio_client.get_settings")
+    def test_upload_fileobj_failure_propagates(self, mock_settings, mock_minio_cls):
+        mock_settings.return_value = self._settings()
+        minio = MagicMock()
+        minio.bucket_exists.return_value = True
+        minio.put_object.side_effect = self._s3_error()
+        mock_minio_cls.return_value = minio
+
+        with pytest.raises(S3Error):
+            MinIOClient.upload_fileobj(
+                file_obj=BytesIO(b"%PDF-1.4"),
+                object_name="resumes/1/cv.pdf",
+                file_size=8,
+            )

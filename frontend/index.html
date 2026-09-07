@@ -2,12 +2,396 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>frontend</title>
+
+    <title>My Mock Interview — AI interview practice from your resume</title>
+    <meta
+      name="description"
+      content="Upload your resume and paste a job description. My Mock Interview writes questions for that exact pairing, scores every answer, and hands you a report."
+    />
+    <link rel="canonical" href="https://interview.nevatal.id/" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="theme-color" content="#ffffff" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="My Mock Interview" />
+    <meta property="og:url" content="https://interview.nevatal.id/" />
+    <meta property="og:title" content="My Mock Interview — AI interview practice from your resume" />
+    <meta
+      property="og:description"
+      content="Upload your resume and paste a job description. You get questions written for that exact pairing, a score on every answer, and a report at the end."
+    />
+    <meta property="og:image" content="https://interview.nevatal.id/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="My Mock Interview — AI interview practice from your resume and a job description." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="My Mock Interview — AI interview practice from your resume" />
+    <meta
+      name="twitter:description"
+      content="Upload your resume and paste a job description. You get questions written for that exact pairing, a score on every answer, and a report at the end."
+    />
+    <meta name="twitter:image" content="https://interview.nevatal.id/og.png" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "My Mock Interview",
+        "url": "https://interview.nevatal.id/",
+        "description": "An AI mock interview that reads your resume and a job description, asks questions written for that pairing, and scores your answers.",
+        "applicationCategory": "EducationalApplication",
+        "operatingSystem": "Any (web browser)",
+        "browserRequirements": "Requires JavaScript.",
+        "isAccessibleForFree": true,
+        "inLanguage": "en"
+      }
+    </script>
+
+    <!-- The landing page ships zero JavaScript and inlines its own CSS: one
+         request, nothing render-blocking, and the copy sits in the raw HTML
+         where a crawler reads it without executing anything. -->
+    <style>
+      :root {
+        --ink: #101828;
+        --ink-soft: #475467;
+        --ink-faint: #667085;
+        --line: #e4e7ec;
+        --wash: #f9fafb;
+        --accent: #4f46e5;
+        --accent-deep: #4338ca;
+        --measure: 60rem;
+        color-scheme: light;
+      }
+
+      *,
+      *::before,
+      *::after { box-sizing: border-box; }
+
+      html { -webkit-text-size-adjust: 100%; }
+
+      /* The anchor link is the only motion on the page, and it still works
+         without this. */
+      @media (prefers-reduced-motion: no-preference) {
+        html { scroll-behavior: smooth; }
+      }
+
+      body {
+        margin: 0;
+        background: #fff;
+        color: var(--ink);
+        font: 400 1rem/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      h1, h2, h3 { margin: 0; line-height: 1.2; letter-spacing: -0.021em; font-weight: 650; }
+      p { margin: 0; }
+      ul, ol { margin: 0; padding: 0; list-style: none; }
+
+      a { color: var(--accent); text-decoration: none; }
+      a:hover { text-decoration: underline; }
+
+      :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
+
+      .wrap {
+        max-width: var(--measure);
+        margin-inline: auto;
+        padding-inline: 1.5rem;
+      }
+
+      .skip {
+        position: absolute;
+        left: -9999px;
+      }
+      .skip:focus { left: 1rem; top: 1rem; background: #fff; padding: 0.6rem 1rem; z-index: 2; }
+
+      /* Header */
+      header {
+        border-bottom: 1px solid var(--line);
+      }
+      .bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        min-height: 4rem;
+      }
+      .mark {
+        color: var(--ink);
+        font-weight: 650;
+        letter-spacing: -0.02em;
+      }
+      .mark:hover { text-decoration: none; }
+      .bar nav {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        font-size: 0.9375rem;
+      }
+      .bar nav a:not(.btn) { color: var(--ink-soft); }
+
+      /* Buttons */
+      .btn {
+        display: inline-block;
+        padding: 0.625rem 1.125rem;
+        border-radius: 8px;
+        background: var(--accent);
+        color: #fff;
+        font-size: 0.9375rem;
+        font-weight: 550;
+        white-space: nowrap;
+        transition: background-color 0.15s ease;
+      }
+      .btn:hover { background: var(--accent-deep); text-decoration: none; }
+      .btn-lg { padding: 0.8125rem 1.5rem; font-size: 1rem; }
+
+      /* Hero */
+      .hero { padding: 5.5rem 0 4.5rem; }
+      .hero h1 {
+        max-width: 34ch;
+        font-size: clamp(2.125rem, 5.2vw, 3.125rem);
+      }
+      .hero p {
+        max-width: 56ch;
+        margin-top: 1.25rem;
+        font-size: clamp(1.0625rem, 1.6vw, 1.1875rem);
+        color: var(--ink-soft);
+      }
+      .cta {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.75rem 1.25rem;
+        margin-top: 2rem;
+      }
+      .fineprint { font-size: 0.875rem; color: var(--ink-faint); }
+
+      /* Sections */
+      section { padding: 4rem 0; border-top: 1px solid var(--line); }
+      section > .wrap > h2 { font-size: clamp(1.5rem, 2.6vw, 1.875rem); }
+      .lede { max-width: 58ch; margin-top: 0.75rem; color: var(--ink-soft); }
+
+      /* Steps */
+      .steps {
+        display: grid;
+        gap: 2rem 2.5rem;
+        grid-template-columns: repeat(auto-fit, minmax(min(20rem, 100%), 1fr));
+        margin-top: 2.5rem;
+        counter-reset: step;
+      }
+      .steps li { counter-increment: step; }
+      .steps li::before {
+        content: counter(step);
+        display: grid;
+        place-items: center;
+        width: 1.875rem;
+        height: 1.875rem;
+        margin-bottom: 0.875rem;
+        border: 1px solid var(--line);
+        border-radius: 50%;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: var(--accent);
+      }
+      .steps h3 { font-size: 1.0625rem; }
+      .steps p { margin-top: 0.5rem; font-size: 0.9375rem; color: var(--ink-soft); }
+
+      /* Two-column honest lists */
+      .cols {
+        display: grid;
+        gap: 2.5rem;
+        grid-template-columns: repeat(auto-fit, minmax(min(20rem, 100%), 1fr));
+        margin-top: 2.5rem;
+      }
+      .cols h3 { font-size: 1.0625rem; }
+      .facts { margin-top: 1rem; }
+      .facts li {
+        padding: 0.875rem 0;
+        border-top: 1px solid var(--line);
+        font-size: 0.9375rem;
+        color: var(--ink-soft);
+      }
+      .facts li:last-child { border-bottom: 1px solid var(--line); }
+      .facts b { color: var(--ink); font-weight: 600; }
+
+      /* Closing call to action */
+      .close { background: var(--wash); text-align: center; }
+      .close p { max-width: 46ch; margin: 0.75rem auto 0; color: var(--ink-soft); }
+      .close .cta { justify-content: center; margin-top: 1.75rem; }
+
+      /* Footer */
+      footer {
+        padding: 2rem 0 3rem;
+        border-top: 1px solid var(--line);
+        font-size: 0.875rem;
+        color: var(--ink-faint);
+      }
+      footer .wrap {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem 1.5rem;
+        justify-content: space-between;
+      }
+
+      @media (max-width: 34rem) {
+        .hero { padding: 3.5rem 0 3rem; }
+        section { padding: 3rem 0; }
+        .bar nav a.nav-link { display: none; }
+      }
+
+      /* Below this the wordmark and the header button start wrapping into each
+         other. The hero call to action sits just under the fold anyway. */
+      @media (max-width: 24rem) {
+        .bar nav { display: none; }
+      }
+    </style>
   </head>
+
   <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
+    <a class="skip" href="#main">Skip to content</a>
+
+    <header>
+      <div class="wrap bar">
+        <a class="mark" href="/">My Mock Interview</a>
+        <nav>
+          <a class="nav-link" href="#how-it-works">How it works</a>
+          <a class="btn" href="/app/">Start practicing</a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main">
+      <div class="hero wrap">
+        <h1>Practice the interview you are actually about to have.</h1>
+        <p>
+          Upload your resume, paste the job description. You get questions written for
+          that exact pairing — then a score and written feedback on every answer you
+          give.
+        </p>
+        <div class="cta">
+          <a class="btn btn-lg" href="/app/">Start a practice interview</a>
+          <span class="fineprint">No sign-up. PDF or DOCX, up to 10&nbsp;MB.</span>
+        </div>
+      </div>
+
+      <section id="how-it-works">
+        <div class="wrap">
+          <h2>How it works</h2>
+          <p class="lede">
+            Four steps, all of them in the browser. Nothing to install and no account to
+            create.
+          </p>
+          <ol class="steps">
+            <li>
+              <h3>Hand it both documents</h3>
+              <p>
+                Your resume as a PDF or DOCX file, and the job description pasted in as
+                text.
+              </p>
+            </li>
+            <li>
+              <h3>It reads them</h3>
+              <p>
+                Five model calls run in sequence: parse the job, analyze the resume, find
+                the gaps between them, draft an interview plan, write the questions.
+              </p>
+            </li>
+            <li>
+              <h3>You answer in a chat</h3>
+              <p>
+                Questions arrive one at a time. Type your answer and it is scored on
+                technical substance and on communication, with a written note on each.
+              </p>
+            </li>
+            <li>
+              <h3>You read the report</h3>
+              <p>
+                Once every question is answered you get an overall score, a technical and
+                a communication score, and a list of strengths and recommendations.
+              </p>
+            </li>
+          </ol>
+        </div>
+      </section>
+
+      <section>
+        <div class="wrap">
+          <h2>What you get, and what to expect</h2>
+          <p class="lede">
+            This is a practice tool built by one person. Here is the whole of it, with
+            nothing dressed up.
+          </p>
+          <div class="cols">
+            <div>
+              <h3>What you get</h3>
+              <ul class="facts">
+                <li>
+                  <b>Questions from both documents.</b> A mix of technical, behavioral and
+                  system-design questions at mixed difficulty, aimed at the gaps between
+                  your resume and the role.
+                </li>
+                <li>
+                  <b>A score on every answer.</b> Technical substance and communication,
+                  each out of ten, with feedback in plain sentences.
+                </li>
+                <li>
+                  <b>A report at the end.</b> Overall, technical and communication
+                  percentages, plus the strengths and recommendations behind them.
+                </li>
+                <li>
+                  <b>No account, no cost.</b> Open the app, upload, start. There is no
+                  sign-up form and nothing to pay.
+                </li>
+              </ul>
+            </div>
+            <div>
+              <h3>What to expect</h3>
+              <ul class="facts">
+                <li>
+                  <b>Everything is typed.</b> There is no voice and no video — you write
+                  your answers.
+                </li>
+                <li>
+                  <b>The first question takes a minute or two.</b> Those five model calls
+                  run one after another before the interview can start.
+                </li>
+                <li>
+                  <b>Your documents go to a language model.</b> The resume is stored by the
+                  app, and its text plus the job description are sent to a model through
+                  OpenRouter to write the questions and score your answers.
+                </li>
+                <li>
+                  <b>The scores are practice feedback.</b> They come from a language model,
+                  not from a recruiter, and they are not a hiring assessment.
+                </li>
+                <li>
+                  <b>Nothing is kept in your browser.</b> Reload the page and the interview
+                  list starts empty again.
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="close">
+        <div class="wrap">
+          <h2>Have the job description ready?</h2>
+          <p>Then you have everything you need. The first question is a couple of minutes away.</p>
+          <div class="cta">
+            <a class="btn btn-lg" href="/app/">Start a practice interview</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        <span>My Mock Interview — interview.nevatal.id</span>
+        <span>Built with FastAPI, React, and an LLM through OpenRouter.</span>
+      </div>
+    </footer>
   </body>
 </html>

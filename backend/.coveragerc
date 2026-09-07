@@ -1,0 +1,25 @@
+# Coverage settings, so `pytest --cov` needs no arguments and the suite fails
+# if coverage drops below the agreed floor.
+#
+# Nothing is excluded from measurement. Two statements are simply never
+# reached, and are left visible in the report rather than hidden behind an
+# exclusion — a pattern broad enough to catch them would hide real gaps:
+#
+#   app/llm/client.py:115   The retry loop always returns or raises before it;
+#                           the source comment says the same.
+#   app/agents/utils.py:36  Reads a Pydantic field alias, and no agent schema
+#                           declares one. Kept because it is what would make
+#                           an alias work the day a schema adds one.
+#
+# So the report shows 2 missed statements on purpose. Treat any third one as
+# a real gap.
+
+[run]
+source = app, main
+
+[report]
+show_missing = True
+
+# The floor, not the target. The suite sits at 99%; this catches a real
+# regression without failing the build over a one-line refactor.
+fail_under = 90

@@ -99,3 +99,28 @@ class TestRecoversUsableShapes:
     def test_reports_the_target_model_in_the_error(self):
         with pytest.raises(OpenRouterValidationError, match="GapAnalysis"):
             parse_and_validate_llm_json('{"unrelated": 1}', GapAnalysis)
+
+
+class TestWellFormedJsonInTheWrongShape:
+    def test_recognised_field_with_the_wrong_type_is_rejected(self):
+        """JSON that names a real field but types it wrongly must not pass.
+
+        Reaching the model's own validation is the point: every field of most
+        agent schemas has a default, so a silently accepted payload would hand
+        the pipeline an analysis that looks populated and is not.
+        """
+        content = json.dumps({"matched_skills": {"not": "a list"}})
+
+        with pytest.raises(OpenRouterValidationError, match="does not match GapAnalysis"):
+            parse_and_validate_llm_json(content, GapAnalysis)
+
+    def test_the_error_names_the_schema_that_was_expected(self):
+        """A required field of the wrong type fails the same way."""
+        from app.schemas.agents import JobDescriptionAnalysis
+
+        content = json.dumps({"job_title": ["Senior", "Engineer"], "company": "Acme"})
+
+        with pytest.raises(OpenRouterValidationError) as raised:
+            parse_and_validate_llm_json(content, JobDescriptionAnalysis)
+
+        assert "JobDescriptionAnalysis" in str(raised.value)

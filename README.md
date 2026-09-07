@@ -36,7 +36,7 @@ curl http://localhost:8000/health
 # → {"status":"healthy","env":"production"}
 ```
 
-The app is now available at **http://localhost:3000** (frontend) and **http://localhost:8000/docs** (API docs).
+The app is now available at **http://localhost:3000** (landing page), **http://localhost:3000/app/** (the interview itself) and **http://localhost:8000/docs** (API docs).
 
 ```bash
 # Stop everything
@@ -78,7 +78,8 @@ cd frontend
 
 npm install
 npm run dev
-# → http://localhost:5173
+# → http://localhost:5173      landing page
+# → http://localhost:5173/app/  the interview app
 ```
 
 You'll need a running PostgreSQL and MinIO instance (or use `docker compose up db minio minio-init` from the root to run just those).
@@ -91,9 +92,33 @@ boundaries.
 
 ```bash
 cd backend
-pytest                                          # unit + integration
-pytest --cov=app --cov=main --cov-report=term    # with coverage
+pytest              # unit + integration, 305 tests
+pytest --cov        # with coverage; settings live in .coveragerc
 ```
+
+`.coveragerc` names `app` and `main` as the measured source and fails the run
+below **90%** coverage. The suite currently sits at **99%**, so the floor
+catches a real regression without failing the build over a refactor.
+
+Nothing is excluded from measurement. Two statements are simply never reached,
+and are left visible in the report rather than hidden behind an exclusion — so
+the report shows 2 missed statements on purpose, and a third is a real gap:
+
+| Line | Why |
+|---|---|
+| `app/llm/client.py:115` | The retry loop returns or raises before reaching it; the source says so too. |
+| `app/agents/utils.py:36` | Reads a Pydantic field alias, and no agent schema declares one. Kept because it is what would make an alias work the day one is added. |
+
+Tests are split by what they touch:
+
+| Directory | What runs |
+|---|---|
+| `tests/unit/` | One module at a time, with its collaborators stubbed. |
+| `tests/integration/` | Endpoints and services against a real SQLite schema, with only the LLM and object storage stubbed. |
+
+Fixtures live in `tests/conftest.py`: a per-test schema, an async HTTP client
+with `get_db` and the LLM client overridden, and one fake LLM payload that
+satisfies every agent schema at once.
 
 To run the same tests against a real PostgreSQL instance:
 
@@ -115,7 +140,8 @@ npm run build
 
 | Service | Port | URL |
 |---|---|---|
-| Frontend | `3000` | http://localhost:3000 |
+| Landing page | `3000` | http://localhost:3000 |
+| Interview app | `3000` | http://localhost:3000/app/ |
 | Backend API | `8000` | http://localhost:8000 |
 | API Docs (Swagger) | `8000` | http://localhost:8000/docs |
 | API Docs (ReDoc) | `8000` | http://localhost:8000/redoc |
@@ -187,10 +213,42 @@ Interviewer/
 │       └── storage/          # File upload handling
 └── frontend/
     ├── Dockerfile
-    ├── nginx.conf            # SPA serving + API proxy
+    ├── nginx.conf            # Route split, SPA serving + API proxy
+    ├── index.html            # Landing page (static, no JavaScript)
+    ├── app/index.html        # React app entry, served at /app/
     ├── src/                  # React application
-    └── public/               # Static assets
+    └── public/               # Copied to the site root as-is
+        ├── robots.txt        # Allows /, disallows /app/
+        ├── sitemap.xml       # The one indexable URL
+        └── og.png            # 1200x630 social preview
 ```
+
+## Pages and SEO
+
+The site is two things served from one nginx container, because the two halves
+want opposite treatment from a crawler:
+
+| Route | What it is | Indexed |
+|---|---|---|
+| `/` | Landing page. Plain HTML, inlined CSS, no JavaScript, so the copy is in the bytes a crawler receives. | Yes |
+| `/app/` | The React app. Needs JavaScript, renders the same shell for every interview. | No — `robots.txt` disallows it |
+
+Every absolute URL is written out as a literal — crawlers and social scrapers
+need them absolute — so moving the site off `interview.nevatal.id` is a
+find-and-replace over three files:
+
+- `frontend/index.html` — the canonical link, `og:url`, `og:image`,
+  `twitter:image`, the JSON-LD `url`, and the domain shown in the footer
+- `frontend/public/robots.txt` — the `Sitemap:` line
+- `frontend/public/sitemap.xml` — the `<loc>`
+
+Renaming the product is the same kind of edit: "My Mock Interview" appears nine
+times in `frontend/index.html` (title, the Open Graph and Twitter tags, the
+JSON-LD `name`, the header wordmark, the footer) and nowhere else on the
+landing page.
+
+When the landing copy changes, bump `<lastmod>` in `sitemap.xml` and resubmit
+it in Google Search Console.
 
 ## API Endpoints
 

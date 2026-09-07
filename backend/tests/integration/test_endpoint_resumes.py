@@ -228,3 +228,57 @@ class TestResumeUploadEdgeCases:
         assert response.status_code == 201
         data = response.json()
         assert data["message"] == "Resume uploaded successfully"
+
+
+class TestUploadStorageRejection:
+    @pytest.mark.asyncio
+    async def test_storage_validation_error_keeps_its_status(
+        self, test_client, db_session
+    ):
+        """A 400 raised inside the storage layer must not become a 500.
+
+        `upload_to_minio` re-validates against the real byte length, so it
+        catches a client that understated Content-Length where the endpoint's
+        own check could not. That verdict is the caller's fault and has to
+        reach them as the 400 it is.
+        """
+        interview = Interview()
+        db_session.add(interview)
+        await db_session.commit()
+
+        with patch("app.api.endpoints.resumes.validate_file", return_value=None), \
+             patch(
+                 "app.api.endpoints.resumes.upload_to_minio",
+                 side_effect=HTTPException(status_code=400, detail="File too large. Max size: 10MB"),
+             ):
+            response = await test_client.post(
+                "/api/v1/resumes",
+                files={"file": ("resume.pdf", b"%PDF-1.4 mock", "application/pdf")},
+                data={"interview_id": str(interview.id)},
+            )
+
+        assert response.status_code == 400
+        assert response.json()["detail"] == "File too large. Max size: 10MB"
+
+    @pytest.mark.asyncio
+    async def test_unexpected_storage_failure_becomes_a_500(
+        self, test_client, db_session
+    ):
+        """Storage being down is the server's fault, not the caller's."""
+        interview = Interview()
+        db_session.add(interview)
+        await db_session.commit()
+
+        with patch("app.api.endpoints.resumes.validate_file", return_value=None), \
+             patch(
+                 "app.api.endpoints.resumes.upload_to_minio",
+                 side_effect=RuntimeError("connection refused"),
+             ):
+            response = await test_client.post(
+                "/api/v1/resumes",
+                files={"file": ("resume.pdf", b"%PDF-1.4 mock", "application/pdf")},
+                data={"interview_id": str(interview.id)},
+            )
+
+        assert response.status_code == 500
+        assert response.json()["detail"] == "Failed to upload file to storage"

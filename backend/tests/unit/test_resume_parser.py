@@ -1,6 +1,6 @@
 import io
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -138,3 +138,59 @@ class TestExtractFromMinio:
                 extract_resume_text_from_minio("resumes/1/cv.docx")
 
         assert not local.exists()
+
+
+class TestExtractFromPdfFilePath:
+    """The file-path PDF reader, used after a resume is pulled from storage.
+
+    PyPDF2 is stubbed rather than fed a hand-built PDF: a minimal valid PDF
+    carries no extractable text, so it cannot show that page text is joined
+    and stripped — the behavior this path actually has.
+    """
+
+    @staticmethod
+    def _pages(*texts):
+        pages = []
+        for text in texts:
+            page = MagicMock()
+            page.extract_text.return_value = text
+            pages.append(page)
+        reader = MagicMock()
+        reader.pages = pages
+        return reader
+
+    def test_joins_pages_and_strips_surrounding_whitespace(self, tmp_path):
+        pdf = tmp_path / "resume.pdf"
+        pdf.write_bytes(b"%PDF-1.4")
+
+        with patch(
+            "app.services.resume_parser.PdfReader",
+            return_value=self._pages("\n  Jane Doe  ", "Backend Engineer\n"),
+        ):
+            text = extract_text_from_file_path(str(pdf))
+
+        assert text == "Jane Doe  \nBackend Engineer"
+
+    def test_a_page_yielding_no_text_is_skipped_not_fatal(self, tmp_path):
+        """`extract_text()` returns None on an image-only page."""
+        pdf = tmp_path / "resume.pdf"
+        pdf.write_bytes(b"%PDF-1.4")
+
+        with patch(
+            "app.services.resume_parser.PdfReader",
+            return_value=self._pages(None, "Second page text"),
+        ):
+            text = extract_text_from_file_path(str(pdf))
+
+        assert text == "Second page text"
+
+    def test_an_unreadable_pdf_returns_empty_rather_than_raising(self, tmp_path):
+        """Extraction is best-effort: the upload already succeeded."""
+        pdf = tmp_path / "resume.pdf"
+        pdf.write_bytes(b"not really a pdf")
+
+        with patch(
+            "app.services.resume_parser.PdfReader",
+            side_effect=Exception("EOF marker not found"),
+        ):
+            assert extract_text_from_file_path(str(pdf)) == ""

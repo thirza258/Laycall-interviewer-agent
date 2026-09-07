@@ -1,0 +1,10 @@
+# https://interview.nevatal.id/robots.txt
+
+User-agent: *
+Allow: /
+
+# The app itself has no crawlable content: it needs JavaScript, every page is
+# the same shell, and interview URLs are private to whoever created them.
+Disallow: /app/
+
+Sitemap: https://interview.nevatal.id/sitemap.xml

@@ -2,6 +2,8 @@ import json
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from openai import APIError
+
 from app.llm.models import LLMRequest, LLMResponse, LLMUsage
 from app.llm.client import OpenRouterClient, get_openrouter_client
 from app.llm.exceptions import (
@@ -10,6 +12,7 @@ from app.llm.exceptions import (
     OpenRouterAPIError,
     OpenRouterTruncatedError,
     OpenRouterValidationError,
+    OpenRouterEmptyResponseError,
 )
 
 
@@ -306,3 +309,108 @@ class TestGetOpenRouterClient:
             c2 = get_openrouter_client()
             assert c1 is c2
             assert mock_cls.call_count == 1
+
+
+class TestUpstreamErrorTranslation:
+    """SDK and provider errors become the domain exceptions endpoints catch.
+
+    The endpoints branch on these classes to pick a status code, so a
+    mistranslation here turns a 429 into a 502 and loses the retry advice.
+    """
+
+    @pytest.fixture
+    def mock_openai(self):
+        with patch("app.llm.client.AsyncOpenAI") as mock:
+            yield mock
+
+    @pytest.fixture
+    def client(self, mock_openai):
+        return OpenRouterClient()
+
+    @pytest.mark.asyncio
+    async def test_http_429_becomes_a_rate_limit_error(self, client, mock_openai):
+        error = APIError("rate limited", request=MagicMock(), body=None)
+        error.status_code = 429
+        mock_openai.return_value.chat.completions.create = AsyncMock(side_effect=error)
+
+        with pytest.raises(OpenRouterRateLimitError):
+            await client.generate_completion(
+                LLMRequest(messages=[{"role": "user", "content": "hi"}])
+            )
+
+    @pytest.mark.asyncio
+    async def test_an_unparseable_choice_is_a_validation_error(self, client, mock_openai):
+        """A choice that carries no `message` cannot be read as a completion.
+
+        Distinct from an empty `choices` list, which the client treats as a
+        transient provider hiccup and retries. A choice that is present but
+        malformed is not going to improve on a retry, so it fails outright.
+        """
+        malformed = make_completion()
+        malformed.choices = [object()]  # no .message to read
+        mock_openai.return_value.chat.completions.create = AsyncMock(
+            return_value=malformed
+        )
+
+        with pytest.raises(OpenRouterValidationError, match="Invalid response format"):
+            await client.generate_completion(
+                LLMRequest(messages=[{"role": "user", "content": "hi"}])
+            )
+
+
+class TestInlineErrorPayloads:
+    """OpenRouter answers HTTP 200 with an `error` field when a provider fails.
+
+    The SDK cannot see these, so the client inspects the body itself. The
+    payload arrives as a dict on some providers and as an object on others,
+    and its `code` is not always a number.
+    """
+
+    @pytest.fixture
+    def client(self):
+        with patch("app.llm.client.AsyncOpenAI"):
+            yield OpenRouterClient()
+
+    @staticmethod
+    def _inline_error(code, message="upstream provider failed"):
+        """An error payload as an object — the non-dict shape."""
+        error = MagicMock()
+        error.code = code
+        error.message = message
+        return error
+
+    def test_object_payload_with_a_429_code_is_a_rate_limit(self, client):
+        with pytest.raises(OpenRouterRateLimitError):
+            client._raise_for_inline_error(self._inline_error(429), "some/model")
+
+    def test_a_retryable_code_is_raised_as_retryable(self, client):
+        """503 is transient, so it must raise the class the retry loop catches."""
+        with pytest.raises(OpenRouterEmptyResponseError, match="Upstream error 503"):
+            client._raise_for_inline_error(self._inline_error(503), "some/model")
+
+    def test_a_permanent_code_is_raised_as_an_api_error(self, client):
+        """402 means the account is out of credit; retrying cannot fix it."""
+        with pytest.raises(OpenRouterAPIError) as raised:
+            client._raise_for_inline_error(self._inline_error(402), "some/model")
+
+        assert raised.value.status_code == 402
+
+    @pytest.mark.parametrize(
+        "code", [None, "not-a-number", {"nested": "code"}],
+        ids=["missing", "text", "object"],
+    )
+    def test_an_unusable_code_falls_back_to_a_retryable_502(self, client, code):
+        """A code that will not convert must not crash the translation.
+
+        502 is in the retryable set, so an unreadable code is treated as a
+        transient upstream failure — the safer of the two readings.
+        """
+        with pytest.raises(OpenRouterEmptyResponseError, match="Upstream error 502"):
+            client._raise_for_inline_error(self._inline_error(code), "some/model")
+
+    def test_a_dict_payload_reads_the_same_fields(self, client):
+        """The dict shape, for the providers that send one."""
+        with pytest.raises(OpenRouterRateLimitError):
+            client._raise_for_inline_error(
+                {"code": 429, "message": "slow down"}, "some/model"
+            )

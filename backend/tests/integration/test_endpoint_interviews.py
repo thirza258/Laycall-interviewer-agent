@@ -1,11 +1,19 @@
+import asyncio
+from unittest.mock import AsyncMock, patch
+
 import pytest
+import pytest_asyncio
 
 from app.db.models.interview import Interview, InterviewStatus
+from app.db.models.job_description import JobDescription
 from app.db.models.resume import Resume
 from app.db.models.question import Question
 from app.db.models.answer import Answer
 from app.db.models.evaluation import Evaluation
 from app.db.models.interview_spec import InterviewSpec
+from app.services import interview_orchestration
+from app.services.interview_finalization import InterviewFinalizationService
+from app.services.interview_orchestration import InterviewOrchestrationService
 
 
 class TestCreateInterview:
@@ -377,3 +385,174 @@ class TestGetResultsEdgeCases:
         response = await test_client.get("/api/v1/interviews/not-an-integer/results")
 
         assert response.status_code == 422
+
+
+class TestNextQuestionGenerationRetry:
+    """The retry the endpoint runs when an interview has no questions yet.
+
+    Reaching it needs three things at once: zero Question rows, a job
+    description, and a resume carrying extracted text. Anything less and the
+    endpoint returns the plain "no questions" answer instead.
+    """
+
+    @pytest_asyncio.fixture
+    async def generatable(self, db_session):
+        """An interview the pipeline could generate from, with no questions."""
+        interview = Interview()
+        db_session.add(interview)
+        await db_session.flush()
+
+        db_session.add_all([
+            JobDescription(
+                interview_id=interview.id,
+                raw_text="Senior backend engineer, Python and FastAPI.",
+            ),
+            Resume(
+                interview_id=interview.id,
+                file_path="resumes/1/cv.pdf",
+                raw_text="Five years of async Python.",
+            ),
+        ])
+        await db_session.commit()
+        return interview
+
+    @pytest.mark.asyncio
+    async def test_retry_generates_the_missing_questions(
+        self, test_client, db_session, generatable
+    ):
+        """A successful retry serves the question it just generated."""
+        async def generate(interview_id):
+            db_session.add(Question(
+                interview_id=interview_id, question="Explain async/await.",
+                question_type="technical", difficulty="medium", sequence=1,
+            ))
+            await db_session.commit()
+            return 1
+
+        with patch.object(
+            InterviewOrchestrationService, "generate_questions",
+            AsyncMock(side_effect=generate),
+        ):
+            response = await test_client.get(
+                f"/api/v1/interviews/{generatable.id}/question"
+            )
+
+        assert response.status_code == 200
+        assert response.json()["question"] == "Explain async/await."
+
+    @pytest.mark.asyncio
+    async def test_generation_already_in_flight_returns_409(
+        self, test_client, generatable
+    ):
+        """A caller must not queue behind a running pipeline.
+
+        The lock is the real one the service uses, held for the duration of
+        the request rather than stubbed, so this exercises `is_generating`
+        against the state a concurrent upload would actually leave behind.
+        """
+        lock = interview_orchestration._generation_lock(generatable.id)
+
+        async with lock:
+            response = await test_client.get(
+                f"/api/v1/interviews/{generatable.id}/question"
+            )
+
+        assert response.status_code == 409
+        assert "still being prepared" in response.json()["detail"]
+
+    @pytest.mark.asyncio
+    async def test_missing_inputs_reported_as_400(
+        self, test_client, generatable
+    ):
+        """A ValueError from the pipeline is the caller's problem, not a 500."""
+        with patch.object(
+            InterviewOrchestrationService, "generate_questions",
+            AsyncMock(side_effect=ValueError("No job description found")),
+        ):
+            response = await test_client.get(
+                f"/api/v1/interviews/{generatable.id}/question"
+            )
+
+        assert response.status_code == 400
+        assert response.json()["detail"] == "No job description found"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("error", [asyncio.TimeoutError(), TimeoutError()])
+    async def test_generation_timeout_returns_504(
+        self, test_client, generatable, error
+    ):
+        """Both timeout types the pipeline can raise map to 504."""
+        with patch.object(
+            InterviewOrchestrationService, "generate_questions",
+            AsyncMock(side_effect=error),
+        ):
+            response = await test_client.get(
+                f"/api/v1/interviews/{generatable.id}/question"
+            )
+
+        assert response.status_code == 504
+        assert "longer than expected" in response.json()["detail"]
+
+    @pytest.mark.asyncio
+    async def test_unreachable_model_returns_503(
+        self, test_client, generatable
+    ):
+        """Any other pipeline failure is reported as the model being down."""
+        with patch.object(
+            InterviewOrchestrationService, "generate_questions",
+            AsyncMock(side_effect=RuntimeError("connection reset")),
+        ):
+            response = await test_client.get(
+                f"/api/v1/interviews/{generatable.id}/question"
+            )
+
+        assert response.status_code == 503
+        assert "Could not reach the interview model" in response.json()["detail"]
+
+    @pytest.mark.asyncio
+    async def test_no_retry_without_a_resume(self, test_client, db_session):
+        """Nothing to generate from: the plain "no questions" answer stands."""
+        interview = Interview()
+        db_session.add(interview)
+        await db_session.flush()
+        db_session.add(JobDescription(
+            interview_id=interview.id, raw_text="Backend engineer."
+        ))
+        await db_session.commit()
+
+        with patch.object(
+            InterviewOrchestrationService, "generate_questions", AsyncMock()
+        ) as generate:
+            response = await test_client.get(
+                f"/api/v1/interviews/{interview.id}/question"
+            )
+
+        generate.assert_not_awaited()
+        assert response.status_code == 404
+
+
+class TestResultsFinalizationFailure:
+    @pytest.mark.asyncio
+    async def test_failed_finalization_still_returns_the_interview(
+        self, test_client, db_session
+    ):
+        """A broken final-assessment call must not take the whole report down.
+
+        The endpoint builds the assessment on read when it is missing. If that
+        raises, the caller should still get the interview with a null score
+        rather than a 500.
+        """
+        interview = Interview()
+        db_session.add(interview)
+        await db_session.commit()
+
+        with patch.object(
+            InterviewFinalizationService, "finalize_if_complete",
+            AsyncMock(side_effect=RuntimeError("model unavailable")),
+        ):
+            response = await test_client.get(
+                f"/api/v1/interviews/{interview.id}/results"
+            )
+
+        assert response.status_code == 200
+        assert response.json()["overall_score"] is None

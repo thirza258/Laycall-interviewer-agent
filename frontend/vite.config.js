@@ -1,3 +1,4 @@
+import { resolve } from "node:path";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
@@ -12,6 +13,18 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  build: {
+    // Two entries, because the two halves of the site have opposite needs.
+    // `index.html` is the landing page: static, zero JavaScript, indexable —
+    // its copy has to sit in the served HTML for a crawler to read it. The
+    // React app moves under /app/, which robots.txt disallows.
+    rollupOptions: {
+      input: {
+        landing: resolve(__dirname, "index.html"),
+        app: resolve(__dirname, "app/index.html"),
+      },
+    },
+  },
   server: {
     proxy: {
       "/api": { target: backend, changeOrigin: true },

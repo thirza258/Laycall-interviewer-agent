@@ -98,3 +98,25 @@ class TestHealthCheck:
 
         assert body["status"] == "healthy"
         assert body["env"] == main.settings.APP_ENV
+
+    def test_a_failing_llm_close_does_not_break_shutdown(self, monkeypatch):
+        """Shutdown must finish even when closing the LLM pool raises.
+
+        The singleton is still dropped, so a restart does not inherit a client
+        whose transport is already broken.
+        """
+        engine = MagicMock()
+        engine.dispose = AsyncMock()
+        monkeypatch.setattr(main, "engine", engine)
+
+        with patch("app.llm.client.AsyncOpenAI") as sdk:
+            sdk.return_value.close = AsyncMock(side_effect=RuntimeError("transport gone"))
+            get_openrouter_client()
+
+            with TestClient(main.app) as client:
+                assert client.get("/health").status_code == 200
+
+            sdk.return_value.close.assert_awaited_once()
+
+        engine.dispose.assert_awaited_once()
+        assert get_openrouter_client.cache_info().currsize == 0

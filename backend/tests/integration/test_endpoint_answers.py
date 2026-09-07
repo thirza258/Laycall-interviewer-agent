@@ -1,6 +1,14 @@
 import pytest
+import pytest_asyncio
 from unittest.mock import patch, AsyncMock
 
+from app.llm.exceptions import (
+    OpenRouterAPIError,
+    OpenRouterRateLimitError,
+    OpenRouterTimeoutError,
+    OpenRouterTruncatedError,
+    OpenRouterValidationError,
+)
 from app.db.models.interview import Interview
 from app.db.models.resume import Resume
 from app.db.models.job_description import JobDescription
@@ -452,3 +460,131 @@ class TestAnswerModelRelationships:
         await db_session.refresh(answer, ["evaluation"])
         assert answer.evaluation is not None
         assert answer.evaluation.technical_score == 9
+
+
+class TestEvaluateAnswerModelFailures:
+    """How each OpenRouter failure surfaces to the caller.
+
+    Every branch here saved the answer before the model was called, so the
+    messages all promise the answer survived. Two of the branches answer 502
+    with different text, which is what the detail assertions pin down — a bare
+    status check would pass against the wrong handler.
+    """
+
+    @pytest_asyncio.fixture
+    async def answered(self, db_session):
+        """An interview with one unevaluated answer, ready to evaluate."""
+        interview = Interview()
+        db_session.add(interview)
+        await db_session.flush()
+
+        db_session.add(JobDescription(
+            interview_id=interview.id, raw_text="Python backend role."
+        ))
+        question = Question(
+            interview_id=interview.id, question="Explain the GIL.",
+            question_type="technical", difficulty="hard", sequence=1,
+        )
+        db_session.add(question)
+        await db_session.flush()
+
+        answer = Answer(
+            question_id=question.id,
+            answer="The GIL serialises bytecode execution per interpreter.",
+        )
+        db_session.add(answer)
+        await db_session.commit()
+        return interview, answer
+
+    @staticmethod
+    def _evaluate_raising(error):
+        """Patch the agent so evaluation raises `error`."""
+        agent = patch("app.api.endpoints.answers.AnswerEvaluationAgent")
+        mock_cls = agent.start()
+        mock_cls.return_value.evaluate = AsyncMock(side_effect=error)
+        return agent
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "error, expected_status, expected_detail",
+        [
+            (
+                OpenRouterRateLimitError("429 from provider"),
+                429,
+                "The model is rate limited right now. Please wait a moment and try again.",
+            ),
+            (
+                OpenRouterTimeoutError("read timeout after 90s"),
+                503,
+                "Could not reach the evaluation model. Your answer was saved — please try again.",
+            ),
+            (
+                OpenRouterAPIError("upstream 500", 500, "bad gateway"),
+                503,
+                "Could not reach the evaluation model. Your answer was saved — please try again.",
+            ),
+            (
+                OpenRouterTruncatedError("hit the token budget"),
+                502,
+                "The evaluation model returned an unusable response. Your answer was saved — please try again.",
+            ),
+            (
+                OpenRouterValidationError("not the shape the schema wants"),
+                502,
+                "The evaluation model returned an unusable response. Your answer was saved — please try again.",
+            ),
+        ],
+        ids=["rate-limited", "timeout", "api-error", "truncated", "malformed"],
+    )
+    async def test_model_failure_status_and_message(
+        self, test_client, answered, error, expected_status, expected_detail
+    ):
+        interview, answer = answered
+
+        agent = self._evaluate_raising(error)
+        try:
+            response = await test_client.post(
+                f"/api/v1/interviews/{interview.id}/answers/{answer.id}/evaluate"
+            )
+        finally:
+            agent.stop()
+
+        assert response.status_code == expected_status
+        assert response.json()["detail"] == expected_detail
+
+    @pytest.mark.asyncio
+    async def test_unexpected_error_uses_the_generic_message(
+        self, test_client, answered
+    ):
+        """A non-OpenRouter failure gets the generic 502, not the model one."""
+        interview, answer = answered
+
+        agent = self._evaluate_raising(KeyError("technical_score"))
+        try:
+            response = await test_client.post(
+                f"/api/v1/interviews/{interview.id}/answers/{answer.id}/evaluate"
+            )
+        finally:
+            agent.stop()
+
+        assert response.status_code == 502
+        assert response.json()["detail"] == "Evaluation service temporarily unavailable"
+
+    @pytest.mark.asyncio
+    async def test_answer_survives_a_failed_evaluation(
+        self, test_client, db_session, answered
+    ):
+        """The 503 promises the answer was saved — check that it was."""
+        interview, answer = answered
+
+        agent = self._evaluate_raising(OpenRouterTimeoutError("timeout"))
+        try:
+            await test_client.post(
+                f"/api/v1/interviews/{interview.id}/answers/{answer.id}/evaluate"
+            )
+        finally:
+            agent.stop()
+
+        stored = await db_session.get(Answer, answer.id)
+        assert stored is not None
+        assert stored.answer.startswith("The GIL serialises")

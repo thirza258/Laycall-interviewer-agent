@@ -28,6 +28,7 @@ from app.schemas.agents import (
 from app.services.evaluation_service import EvaluationService
 from app.services.interview_completion_service import InterviewCompletionService
 from app.services.interview_finalization import InterviewFinalizationService
+from app.services.interview_orchestration import InterviewOrchestrationService
 from app.services.interview_spec_service import InterviewSpecService
 from app.services.resume_extraction import ResumeExtractionService
 
@@ -455,3 +456,122 @@ class TestInterviewFinalizationService:
 
         assert assessment is None
         fake_llm_client.generate_completion.assert_not_awaited()
+
+
+class TestInterviewSpecServiceRecovery:
+    async def test_spec_row_with_null_json_data_is_repaired(self, db_session):
+        """A spec row can predate its json_data column being populated.
+
+        Writing a key straight into None raises TypeError, which would fail
+        every save for that interview from then on. The service resets the
+        column to an empty object first.
+        """
+        interview = await _interview(db_session)
+        db_session.add(InterviewSpec(interview_id=interview.id, json_data=None))
+        await db_session.commit()
+
+        result = await InterviewSpecService(db_session)._upsert_spec(
+            interview.id, "questions", [{"question": "Q1"}]
+        )
+
+        assert result["questions"] == [{"question": "Q1"}]
+        stored = (await db_session.execute(
+            select(InterviewSpec).where(InterviewSpec.interview_id == interview.id)
+        )).scalar_one()
+        assert stored.json_data == {"questions": [{"question": "Q1"}]}
+
+
+class TestResumeExtractionFailures:
+    async def test_extraction_failure_rolls_back_and_reraises(
+        self, db_session, tmp_path
+    ):
+        """A failure mid-extraction must not leave a half-written session.
+
+        `extract_text_from_file_path` swallows parse errors itself, so this
+        covers the harder case: something after the download raising, where
+        the service has to roll back rather than commit a partial update.
+        """
+        interview = await _interview(db_session)
+        resume = Resume(interview_id=interview.id, file_path="resumes/1/cv.pdf")
+        db_session.add(resume)
+        await db_session.commit()
+
+        local_copy = tmp_path / "cv.pdf"
+        local_copy.write_bytes(b"%PDF-1.4")
+
+        with patch(
+            "app.services.resume_extraction.MinIOClient.download_to_temp",
+            return_value=str(local_copy),
+        ), patch(
+            "app.services.resume_extraction.extract_text_from_file_path",
+            side_effect=RuntimeError("parser crashed"),
+        ), patch.object(
+            db_session, "rollback", wraps=db_session.rollback
+        ) as rollback:
+            with pytest.raises(RuntimeError, match="parser crashed"):
+                await ResumeExtractionService(db_session).extract_and_save(resume.id)
+
+        # Asserted on the call, not on raw_text: this failure lands before the
+        # UPDATE, so raw_text stays None whether or not the service rolls back.
+        # The rollback still matters — it is what stops a later failure from
+        # committing a half-written session.
+        rollback.assert_awaited_once()
+        await db_session.refresh(resume)
+        assert resume.raw_text is None
+        # The temp file is still cleaned up on the failing path.
+        assert not local_copy.exists()
+
+
+class TestInterviewOrchestrationInputChecks:
+    async def test_cannot_generate_without_resume_text(self, db_session, fake_llm_client):
+        """A job description alone is not enough to build an interview from."""
+        interview = await _interview(db_session)
+        db_session.add_all([
+            JobDescription(interview_id=interview.id, raw_text="Backend engineer."),
+            Resume(interview_id=interview.id, file_path="resumes/1/cv.pdf", raw_text=None),
+        ])
+        await db_session.commit()
+
+        service = InterviewOrchestrationService(db_session, fake_llm_client)
+        assert await service.can_generate(interview.id) is False
+
+    async def test_can_generate_with_both_inputs(self, db_session, fake_llm_client):
+        interview = await _interview(db_session)
+        db_session.add_all([
+            JobDescription(interview_id=interview.id, raw_text="Backend engineer."),
+            Resume(
+                interview_id=interview.id, file_path="resumes/1/cv.pdf",
+                raw_text="Five years of Python.",
+            ),
+        ])
+        await db_session.commit()
+
+        service = InterviewOrchestrationService(db_session, fake_llm_client)
+        assert await service.can_generate(interview.id) is True
+
+    async def test_pipeline_rejects_a_missing_interview(self, db_session, fake_llm_client):
+        service = InterviewOrchestrationService(db_session, fake_llm_client)
+
+        with pytest.raises(ValueError, match="Interview 99999 not found"):
+            await service._run_pipeline(99999)
+
+    async def test_pipeline_rejects_a_missing_job_description(
+        self, db_session, fake_llm_client
+    ):
+        interview = await _interview(db_session)
+        await db_session.commit()
+        service = InterviewOrchestrationService(db_session, fake_llm_client)
+
+        with pytest.raises(ValueError, match="No job description found"):
+            await service._run_pipeline(interview.id)
+
+    async def test_pipeline_rejects_a_missing_resume(self, db_session, fake_llm_client):
+        interview = await _interview(db_session)
+        db_session.add(
+            JobDescription(interview_id=interview.id, raw_text="Backend engineer.")
+        )
+        await db_session.commit()
+        service = InterviewOrchestrationService(db_session, fake_llm_client)
+
+        with pytest.raises(ValueError, match="No resume found"):
+            await service._run_pipeline(interview.id)

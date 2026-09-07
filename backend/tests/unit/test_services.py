@@ -231,3 +231,42 @@ class TestInterviewOrchestrationService:
 
         await task
         assert service.is_generating(6) is False
+
+
+class TestResumeExtractionGuards:
+    """The guard on a resume row that carries no object path.
+
+    `resumes.file_path` is NOT NULL, so this state cannot be reached through
+    a persisted row — which is exactly why the session is stubbed here rather
+    than using the SQLite fixture. The guard still earns its test: it is what
+    turns a hand-edited row or a future nullable migration into a named error
+    instead of `None` being handed to the storage client.
+    """
+
+    @staticmethod
+    def _session_returning(resume):
+        result = MagicMock()
+        result.scalar_one_or_none.return_value = resume
+        db = AsyncMock()
+        db.execute = AsyncMock(return_value=result)
+        return db
+
+    @pytest.mark.asyncio
+    async def test_resume_without_a_file_path_raises(self):
+        from app.db.models.resume import Resume
+        from app.services.resume_extraction import ResumeExtractionService
+
+        resume = Resume(id=7, interview_id=1, file_path=None)
+        service = ResumeExtractionService(self._session_returning(resume))
+
+        with pytest.raises(ValueError, match="Resume 7 has no associated file path"):
+            await service.extract_and_save(7)
+
+    @pytest.mark.asyncio
+    async def test_missing_resume_names_the_id(self):
+        from app.services.resume_extraction import ResumeExtractionService
+
+        service = ResumeExtractionService(self._session_returning(None))
+
+        with pytest.raises(ValueError, match="Resume with ID 7 not found"):
+            await service.extract_and_save(7)
