@@ -3,6 +3,7 @@ from functools import lru_cache
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from dotenv import load_dotenv
+from sqlalchemy.engine import URL
 
 # Pick up a .env from the project root so a local run sees the same values
 # docker compose passes in as environment variables.
@@ -84,10 +85,14 @@ class Settings(BaseSettings):
     def DATABASE_URL(self) -> str:
         if self.DB_URL:
             return self.DB_URL
-        return (
-            f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASSWORD}"
-            f"@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
-        )
+        return URL.create(
+            "postgresql+asyncpg",
+            username=self.DB_USER,
+            password=self.DB_PASSWORD,
+            host=self.DB_HOST,
+            port=int(self.DB_PORT),
+            database=self.DB_NAME,
+        ).render_as_string(hide_password=False)
 
 
 @lru_cache()

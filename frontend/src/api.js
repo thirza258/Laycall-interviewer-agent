@@ -13,13 +13,15 @@ export function errorMessage(payload, res) {
 
 async function readError(res) {
   const payload = await res.json().catch(() => null);
-  return new Error(errorMessage(payload, res));
+  const error = new Error(errorMessage(payload, res));
+  error.status = res.status;
+  return error;
 }
 
 async function request(url, options = {}) {
   const res = await fetch(`${API_BASE}${url}`, {
-    headers: { 'Content-Type': 'application/json', ...options.headers },
     ...options,
+    headers: { 'Content-Type': 'application/json', ...options.headers },
   });
   if (!res.ok) {
     throw await readError(res);
@@ -71,5 +73,6 @@ export async function getInterviewResults(interviewId) {
 
 export async function healthCheck() {
   const res = await fetch('/health');
+  if (!res.ok) throw await readError(res);
   return res.json();
 }

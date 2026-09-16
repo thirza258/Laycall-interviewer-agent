@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import hrImg from '../assets/hr.jpg';
 
-export default function ChatArea({ interview, messages, onSend, onSetup, loading, error }) {
+export default function ChatArea({ interview, messages, onSend, onNext, onSetup, onRetryEvaluation, onRetryResults, loading, error }) {
   const [input, setInput] = useState('');
   const [setupData, setSetupData] = useState({ jobDescription: '', resumeFile: null });
   const messagesEnd = useRef(null);
@@ -10,16 +10,15 @@ export default function ChatArea({ interview, messages, onSend, onSetup, loading
     messagesEnd.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
-    if (!input.trim()) return;
-    onSend(input.trim());
-    setInput('');
+    if (loading || !input.trim()) return;
+    if (await onSend(input.trim())) setInput('');
   }
 
   function handleSetupSubmit(e) {
     e.preventDefault();
-    if (!setupData.resumeFile || !setupData.jobDescription.trim()) return;
+    if (loading || !setupData.resumeFile || setupData.jobDescription.trim().length < 10) return;
     onSetup(setupData.resumeFile, setupData.jobDescription.trim());
   }
 
@@ -49,12 +48,13 @@ export default function ChatArea({ interview, messages, onSend, onSetup, loading
                 placeholder="Paste the job description here..."
                 className="p-3 bg-[#1a1a2e] border border-[#333] rounded-lg text-[#e0e0e0] text-sm resize-y font-sans placeholder:text-[#666]"
                 value={setupData.jobDescription}
+                minLength={10}
                 onChange={(e) => setSetupData({ ...setupData, jobDescription: e.target.value })}
               />
             </label>
             <button
               type="submit"
-              disabled={loading || !setupData.resumeFile || !setupData.jobDescription.trim()}
+              disabled={loading || !setupData.resumeFile || setupData.jobDescription.trim().length < 10}
               className="py-3 px-6 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-base font-semibold cursor-pointer transition-colors disabled:bg-[#333] disabled:text-[#666] disabled:cursor-not-allowed"
             >
               {loading ? 'Starting...' : 'Start Interview'}
@@ -81,7 +81,7 @@ export default function ChatArea({ interview, messages, onSend, onSetup, loading
             <p>Click "Next Question" to start the interview.</p>
             <button
               className="py-3 px-6 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-base font-semibold cursor-pointer transition-colors"
-              onClick={() => onSend('')}
+              onClick={onNext}
             >
               Next Question
             </button>
@@ -130,6 +130,12 @@ export default function ChatArea({ interview, messages, onSend, onSetup, loading
                       <ul className="mt-1 ml-4">{msg.results.strengths.map((s, j) => <li key={j} className="text-[#aaa] text-xs mb-0.5">{s}</li>)}</ul>
                     </div>
                   )}
+                  {msg.results.weaknesses?.length > 0 && (
+                    <div>
+                      <strong className="block mt-2 text-[#ccc]">Areas to improve:</strong>
+                      <ul className="mt-1 ml-4">{msg.results.weaknesses.map((w, j) => <li key={j} className="text-[#aaa] text-xs mb-0.5">{w}</li>)}</ul>
+                    </div>
+                  )}
                   {msg.results.recommendations?.length > 0 && (
                     <div>
                       <strong className="block mt-2 text-[#ccc]">Recommendations:</strong>
@@ -152,7 +158,19 @@ export default function ChatArea({ interview, messages, onSend, onSetup, loading
           </div>
         )}
 
-        {error && <p className="text-red-500 text-sm p-2 bg-[#2d1111] rounded-md m-0">{error}</p>}
+        {error && <p role="alert" className="text-red-500 text-sm p-2 bg-[#2d1111] rounded-md m-0">{error}</p>}
+        {interview.pendingAnswer && !loading && (
+          <button type="button" onClick={onRetryEvaluation}
+            className="self-start py-2 px-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg">
+            Retry Evaluation
+          </button>
+        )}
+        {interview.resultsPending && !loading && (
+          <button type="button" onClick={onRetryResults}
+            className="self-start py-2 px-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg">
+            Retry Results
+          </button>
+        )}
         <div ref={messagesEnd} />
       </div>
 
@@ -161,21 +179,22 @@ export default function ChatArea({ interview, messages, onSend, onSetup, loading
           type="text"
           placeholder="Type your answer..."
           value={input}
+          maxLength={5000}
           onChange={(e) => setInput(e.target.value)}
-          disabled={loading || interview.status === 'completed'}
+          disabled={loading || !interview.currentQuestion || interview.questionAnswered || !!interview.pendingAnswer || interview.status === 'completed'}
           className="flex-1 py-2.5 px-4 bg-[#1a1a2e] border border-[#333] rounded-lg text-[#e0e0e0] text-sm placeholder:text-[#555] disabled:opacity-50"
         />
         <button
           type="submit"
-          disabled={loading || !input.trim() || interview.status === 'completed'}
+          disabled={loading || !input.trim() || !interview.currentQuestion || interview.questionAnswered || !!interview.pendingAnswer || interview.status === 'completed'}
           className="py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-semibold cursor-pointer text-sm transition-colors whitespace-nowrap disabled:bg-[#2a2a3a] disabled:text-[#555] disabled:cursor-not-allowed"
         >
           Send
         </button>
         <button
           type="button"
-          disabled={loading || interview.status === 'completed'}
-          onClick={() => onSend('')}
+          disabled={loading || !!interview.pendingAnswer || (interview.currentQuestion && !interview.questionAnswered) || interview.noMoreQuestions || interview.status === 'completed'}
+          onClick={onNext}
           className="py-2.5 px-4 bg-[#222240] hover:bg-[#2e2e52] text-white rounded-lg font-semibold cursor-pointer text-sm transition-colors whitespace-nowrap disabled:bg-[#2a2a3a] disabled:text-[#555] disabled:cursor-not-allowed"
         >
           Next Question

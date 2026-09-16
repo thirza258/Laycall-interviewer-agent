@@ -68,7 +68,7 @@ def _coerce_payload(data: Any, model: Type[T]) -> Any:
     return data
 
 
-def parse_and_validate_llm_json(response_content: str, model: Type[T]) -> T:
+def parse_and_validate_llm_json(response_content: str | None, model: Type[T]) -> T:
     """
     Extracts JSON from LLM response, strips markdown formatting,
     and validates against the provided Pydantic model.
@@ -105,5 +105,5 @@ def parse_and_validate_llm_json(response_content: str, model: Type[T]) -> T:
             ) from e
 
     raise OpenRouterValidationError(
-        f"LLM returned invalid JSON: {last_error}\nContent: {response_content[:200]}"
+        f"LLM returned invalid JSON: {last_error}\nContent: {(response_content or '')[:200]}"
     )

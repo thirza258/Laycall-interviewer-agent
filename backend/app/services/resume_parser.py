@@ -3,9 +3,25 @@ from pathlib import Path
 from io import BytesIO
 from PyPDF2 import PdfReader 
 from docx import Document
+from docx.text.paragraph import Paragraph
 from app.core.minio_client import MinIOClient
 
 logger = logging.getLogger(__name__)
+
+
+def _docx_text(container):
+    """Read paragraphs and table cells in order, including nested tables."""
+    for block in container.iter_inner_content():
+        if isinstance(block, Paragraph):
+            if block.text.strip():
+                yield block.text
+        else:
+            seen_cells = set()
+            for row in block.rows:
+                for cell in row.cells:
+                    if cell._tc not in seen_cells:
+                        seen_cells.add(cell._tc)
+                        yield from _docx_text(cell)
 
 def extract_text_from_pdf_bytes(content: bytes) -> str:
     """Extract text from PDF bytes using PyPDF2."""
@@ -21,7 +37,7 @@ def extract_text_from_docx_bytes(content: bytes) -> str:
     """Extract text from DOCX bytes."""
     try:
         doc = Document(BytesIO(content))
-        text = "\n".join(paragraph.text for paragraph in doc.paragraphs)
+        text = "\n".join(_docx_text(doc))
         return text.strip()
     except Exception as e:
         logger.error(f"Failed to extract text from DOCX bytes: {e}")
@@ -42,7 +58,7 @@ def extract_text_from_file_path(file_path: str) -> str:
     elif ext == ".docx":
         try:
             doc = Document(file_path)
-            text = "\n".join(paragraph.text for paragraph in doc.paragraphs)
+            text = "\n".join(_docx_text(doc))
             return text.strip()
         except Exception as e:
             logger.error(f"Failed to extract text from DOCX {file_path}: {e}")

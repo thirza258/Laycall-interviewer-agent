@@ -279,7 +279,7 @@ class TestEvaluateAnswer:
 
     @pytest.mark.asyncio
     async def test_evaluate_already_evaluated(self, test_client, db_session):
-        """Re-evaluating an already evaluated answer should return 409 Conflict."""
+        """A retry returns the saved evaluation without calling the model again."""
         interview = Interview()
         db_session.add(interview)
         await db_session.flush()
@@ -318,7 +318,9 @@ class TestEvaluateAnswer:
                 f"/api/v1/interviews/{interview.id}/answers/{answer.id}/evaluate",
             )
 
-        assert response.status_code == 409
+        assert response.status_code == 200
+        assert response.json()["evaluation"]["technical_score"] == 5
+        mock_agent.evaluate.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_evaluate_answer_wrong_interview(self, test_client, db_session):

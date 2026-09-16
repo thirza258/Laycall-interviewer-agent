@@ -53,7 +53,7 @@ class TestQuestionGeneratorAgent:
     async def test_generate_sets_higher_temperature(self, agent, mock_llm_client, spec):
         """Question generation should use higher temperature for creativity."""
         mock_llm_client.generate_completion.return_value = LLMResponse(
-            content=json.dumps({"questions": []}), model="test", finish_reason="stop"
+            content=json.dumps({"questions": [{"question": "Explain async/await.", "type": "technical", "difficulty": "easy"}]}), model="test", finish_reason="stop"
         )
 
         await agent.generate(spec)
@@ -69,7 +69,7 @@ class TestQuestionGeneratorAgent:
     @pytest.mark.asyncio
     async def test_generate_includes_focus_areas(self, agent, mock_llm_client, spec):
         mock_llm_client.generate_completion.return_value = LLMResponse(
-            content=json.dumps({"questions": []}), model="test", finish_reason="stop"
+            content=json.dumps({"questions": [{"question": "Explain async/await.", "type": "technical", "difficulty": "easy"}]}), model="test", finish_reason="stop"
         )
 
         await agent.generate(spec)

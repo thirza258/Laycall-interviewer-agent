@@ -1,6 +1,6 @@
 import logging
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.final_review_agent import FinalReviewAgent
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class InterviewFinalizationService:
-    """Turns a fully answered interview into its final assessment.
+    """Turns a fully evaluated interview into its final assessment.
 
     The final review agent previously had no caller, so `/results` answered
     with empty scores no matter how many questions were answered.
@@ -29,7 +29,7 @@ class InterviewFinalizationService:
         self.spec_service = InterviewSpecService(db)
 
     async def finalize_if_complete(self, interview_id: int) -> dict | None:
-        """Generate and store the final assessment once every question is answered.
+        """Store a report once the latest answer to every question is evaluated.
 
         Returns the assessment (existing or newly generated), or None while the
         interview is still in progress. Idempotent: a stored assessment is
@@ -37,24 +37,17 @@ class InterviewFinalizationService:
         """
         existing = await self._stored_assessment(interview_id)
         if existing:
+            await self.completion_service.check_and_update(interview_id)
             return existing
 
-        is_complete, summary = await self.completion_service.check_and_update(interview_id)
-        if not is_complete:
+        questions, answers, evaluations = await self._evaluated_answers(interview_id)
+        total_questions = (await self.db.execute(
+            select(func.count(Question.id)).where(Question.interview_id == interview_id)
+        )).scalar_one()
+        if not total_questions or len(questions) != total_questions:
             logger.debug(
                 f"Interview {interview_id} not finalized: "
-                f"{summary['answered_count']}/{summary['total_questions']} answered"
-            )
-            return None
-
-        return await self._generate_assessment(interview_id)
-
-    async def _generate_assessment(self, interview_id: int) -> dict | None:
-        questions, answers, evaluations = await self._evaluated_answers(interview_id)
-        if not questions:
-            logger.warning(
-                f"Interview {interview_id} is complete but has no evaluated answers; "
-                f"skipping final assessment"
+                f"{len(questions)}/{total_questions} latest answers evaluated"
             )
             return None
 
@@ -65,12 +58,14 @@ class InterviewFinalizationService:
             evaluations=evaluations,
             job_context=await self._job_context(interview_id),
         )
-        await self.spec_service.save_final_assessment(interview_id, assessment)
+        stored = await self.spec_service.save_final_assessment(interview_id, assessment)
+        # A failed review must leave the interview available for retries.
+        await self.completion_service.check_and_update(interview_id)
         logger.info(
             f"Final assessment stored for interview {interview_id} "
             f"(overall={assessment.overall_score})"
         )
-        return assessment.model_dump()
+        return stored["final_assessment"]
 
     async def _evaluated_answers(
         self, interview_id: int
@@ -82,9 +77,19 @@ class InterviewFinalizationService:
         without an evaluation drops out of all three lists at once instead of
         shifting the others.
         """
+        # Select the latest submitted answer before joining evaluations. An
+        # unevaluated revision must not silently fall back to an older score.
+        latest_answers = (
+            select(func.max(Answer.id).label("answer_id"))
+            .join(Question, Question.id == Answer.question_id)
+            .where(Question.interview_id == interview_id)
+            .group_by(Answer.question_id)
+            .subquery()
+        )
         stmt = (
             select(Question, Answer, Evaluation)
             .join(Answer, Answer.question_id == Question.id)
+            .join(latest_answers, latest_answers.c.answer_id == Answer.id)
             .join(Evaluation, Evaluation.answer_id == Answer.id)
             .where(Question.interview_id == interview_id)
             .order_by(Question.sequence, Answer.id)

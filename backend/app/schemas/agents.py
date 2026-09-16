@@ -1,4 +1,6 @@
-from pydantic import BaseModel, Field
+from typing import Annotated
+
+from pydantic import BaseModel, Field, StringConstraints
 
 class JobDescriptionAnalysis(BaseModel):
     job_title: str = Field(..., description="Extracted job title")
@@ -40,13 +42,15 @@ class FinalInterviewSpec(BaseModel):
     candidate_gaps: list[str] = Field(default=[], description="Areas where candidate lacks experience")
 
 class InterviewQuestion(BaseModel):
-    question: str = Field(..., description="The interview question text")
+    question: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)] = Field(
+        ..., description="The interview question text"
+    )
     type: str = Field(..., description="Category (e.g., technical, behavioral, system_design, cultural_fit)")
     difficulty: str = Field(..., description="Difficulty (easy, medium, hard)")
 
 class GeneratedQuestions(BaseModel):
     # OpenAI's json_object mode requires a top-level object, so we wrap the array
-    questions: list[InterviewQuestion] = Field(..., description="List of generated interview questions")
+    questions: list[InterviewQuestion] = Field(..., min_length=1, description="List of generated interview questions")
     
 class AnswerEvaluation(BaseModel):
     technical_score: int = Field(

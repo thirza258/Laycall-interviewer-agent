@@ -173,7 +173,8 @@ class TestResumeUploadEdgeCases:
         db_session.add(interview)
         await db_session.commit()
 
-        with patch("app.api.endpoints.resumes.validate_file") as mock_validate, \
+        with patch("app.api.endpoints.resumes.extract_resume_text_from_bytes", return_value="Resume text"), \
+             patch("app.api.endpoints.resumes.validate_file") as mock_validate, \
              patch("app.api.endpoints.resumes.upload_to_minio") as mock_upload:
 
             mock_validate.return_value = None
@@ -246,7 +247,8 @@ class TestUploadStorageRejection:
         db_session.add(interview)
         await db_session.commit()
 
-        with patch("app.api.endpoints.resumes.validate_file", return_value=None), \
+        with patch("app.api.endpoints.resumes.extract_resume_text_from_bytes", return_value="Resume text"), \
+             patch("app.api.endpoints.resumes.validate_file", return_value=None), \
              patch(
                  "app.api.endpoints.resumes.upload_to_minio",
                  side_effect=HTTPException(status_code=400, detail="File too large. Max size: 10MB"),
@@ -269,7 +271,8 @@ class TestUploadStorageRejection:
         db_session.add(interview)
         await db_session.commit()
 
-        with patch("app.api.endpoints.resumes.validate_file", return_value=None), \
+        with patch("app.api.endpoints.resumes.extract_resume_text_from_bytes", return_value="Resume text"), \
+             patch("app.api.endpoints.resumes.validate_file", return_value=None), \
              patch(
                  "app.api.endpoints.resumes.upload_to_minio",
                  side_effect=RuntimeError("connection refused"),

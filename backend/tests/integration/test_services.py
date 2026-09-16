@@ -381,11 +381,11 @@ class TestInterviewFinalizationService:
         assert first == second
         fake_llm_client.generate_completion.assert_awaited_once()
 
-    async def test_only_evaluated_answers_reach_the_agent_in_order(
+    async def test_evaluated_answers_remain_aligned_in_order(
         self, db_session, fake_llm_client
     ):
-        """The agent zips questions, answers and evaluations together, so an
-        answer without an evaluation must drop out of all three lists."""
+        """Keep partial triples aligned, but wait for the missing evaluation
+        before passing the full interview to the final review agent."""
         interview = await _interview(db_session, InterviewStatus.IN_PROGRESS)
         first = await _question(db_session, interview.id, 1)
         second = await _question(db_session, interview.id, 2)
@@ -399,25 +399,14 @@ class TestInterviewFinalizationService:
         await _evaluation(db_session, third_answer.id, technical=9, communication=10)
         await db_session.commit()
 
-        with patch(
-            "app.services.interview_finalization.FinalReviewAgent"
-        ) as agent_cls:
-            agent = agent_cls.return_value
-            agent.generate_assessment = AsyncMock(
-                return_value=type(
-                    "Assessment",
-                    (),
-                    {"overall_score": 50, "model_dump": lambda self: {"overall_score": 50}},
-                )()
-            )
-            await InterviewFinalizationService(
-                db_session, fake_llm_client
-            ).finalize_if_complete(interview.id)
-
-        kwargs = agent.generate_assessment.await_args.kwargs
-        assert [q["question"] for q in kwargs["questions"]] == ["Question 1?", "Question 3?"]
-        assert [a["answer"] for a in kwargs["answers"]] == ["Answer one", "Answer three"]
-        assert [e["technical_score"] for e in kwargs["evaluations"]] == [3, 9]
+        service = InterviewFinalizationService(db_session, fake_llm_client)
+        questions, answers, evaluations = await service._evaluated_answers(interview.id)
+        assert [q["question"] for q in questions] == ["Question 1?", "Question 3?"]
+        assert [a["answer"] for a in answers] == ["Answer one", "Answer three"]
+        assert [e["technical_score"] for e in evaluations] == [3, 9]
+        assert await service.finalize_if_complete(interview.id) is None
+        assert interview.status == InterviewStatus.IN_PROGRESS
+        fake_llm_client.generate_completion.assert_not_awaited()
 
     async def test_passes_the_stored_spec_as_job_context(self, db_session, fake_llm_client):
         interview = await _interview(db_session, InterviewStatus.IN_PROGRESS)

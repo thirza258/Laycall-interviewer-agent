@@ -4,7 +4,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 from app.db.session import get_db
-from app.db.models.interview import Interview
+from app.db.models.interview import Interview, InterviewStatus
+from app.db.models.evaluation import Evaluation
 from app.db.models.question import Question
 from app.db.models.answer import Answer
 from app.schemas.answer import AnswerCreate, AnswerResponse
@@ -44,6 +45,9 @@ async def submit_answer(
     
     if not interview:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Interview not found")
+
+    if interview.status in (InterviewStatus.COMPLETED, InterviewStatus.ARCHIVED):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This interview is already closed")
 
     question_stmt = select(Question).where(
         Question.id == payload.question_id,
@@ -88,6 +92,7 @@ async def evaluate_answer(
         select(Answer)
         .join(Answer.question)
         .options(
+            joinedload(Answer.evaluation),
             joinedload(Answer.question)
             .joinedload(Question.interview)
             .joinedload(Interview.job_descriptions)
@@ -104,6 +109,9 @@ async def evaluate_answer(
 
     if not answer:
         raise HTTPException(status_code=404, detail="Answer not found")
+
+    if answer.evaluation is not None:
+        return await _evaluation_response(interview_id, answer.evaluation, db, llm_client)
 
     agent = AnswerEvaluationAgent(llm_client)
     try:
@@ -151,6 +159,15 @@ async def evaluate_answer(
             detail=str(e)
         )
 
+    return await _evaluation_response(interview_id, saved_eval, db, llm_client)
+
+
+async def _evaluation_response(
+    interview_id: int,
+    saved_eval: Evaluation,
+    db: AsyncSession,
+    llm_client: OpenRouterClient,
+) -> dict:
     # With every question answered and evaluated, build the final report.
     # Best effort: the evaluation is already saved, and GET /results retries
     # this, so a failure here must not turn a good evaluation into an error.

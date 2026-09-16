@@ -149,7 +149,10 @@ class InterviewOrchestrationService:
 
     async def _get_resume_text(self, interview_id: int) -> str | None:
         result = await self.db.execute(
-            select(Resume).where(Resume.interview_id == interview_id)
+            select(Resume)
+            .where(Resume.interview_id == interview_id)
+            .order_by(Resume.id.desc())
+            .limit(1)
         )
         resume = result.scalar_one_or_none()
         return resume.raw_text if resume else None

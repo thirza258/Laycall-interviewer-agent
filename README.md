@@ -92,7 +92,7 @@ boundaries.
 
 ```bash
 cd backend
-pytest              # unit + integration, 305 tests
+pytest              # unit + integration tests
 pytest --cov        # with coverage; settings live in .coveragerc
 ```
 
@@ -132,7 +132,7 @@ Frontend:
 cd frontend
 npm install
 npm run lint
-npm test      # api client unit tests
+npm test      # API client and interview UI regression tests
 npm run build
 ```
 
@@ -188,6 +188,12 @@ docker compose logs backend | grep -iE "openrouter|LLM"
 
 If an interview ends up with no questions, asking for the first question retries
 the pipeline automatically.
+
+The interview keeps its conversation and question position when switching
+sessions in the sidebar. After an evaluation fails, use **Retry Evaluation**
+to score the saved answer. **Retry Results** retries a missing final report.
+Reports are generated only after the latest answer to every question has an
+evaluation. Resume uploads require readable text; DOCX tables are supported.
 
 ## Project Structure
 

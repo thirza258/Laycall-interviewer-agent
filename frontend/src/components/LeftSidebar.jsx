@@ -1,4 +1,4 @@
-export default function LeftSidebar({ interviews, activeInterviewId, onSelect, onNew }) {
+export default function LeftSidebar({ interviews, activeInterviewId, onSelect, onNew, disabled }) {
   return (
     <aside className="flex flex-col bg-[#1a1a2e] text-[#e0e0e0] h-screen overflow-y-auto">
       <div className="flex justify-between items-center px-4 py-5 border-b border-[#2a2a4a]">
@@ -6,6 +6,7 @@ export default function LeftSidebar({ interviews, activeInterviewId, onSelect, o
         <button
           className="bg-indigo-600 hover:bg-indigo-500 text-white px-3.5 py-1.5 rounded-lg text-sm cursor-pointer transition-colors"
           onClick={onNew}
+          disabled={disabled}
         >
           + New
         </button>
@@ -19,10 +20,12 @@ export default function LeftSidebar({ interviews, activeInterviewId, onSelect, o
           interviews.map((iv) => (
             <button
               key={iv.id}
+              aria-label={`Interview ${iv.id}, ${iv.status}`}
               className={`flex items-center gap-2 w-full p-3 border-none rounded-lg bg-transparent text-[#ccc] cursor-pointer text-left text-sm mb-1 transition-colors hover:bg-[#2a2a4a] ${
                 iv.id === activeInterviewId ? 'bg-indigo-600 text-white' : ''
               }`}
               onClick={() => onSelect(iv.id)}
+              disabled={disabled}
             >
               <span className="font-semibold text-sm">#{iv.id}</span>
               <span className={`text-[11px] px-2 py-0.5 rounded-xl uppercase font-semibold tracking-wide ${statusColor(iv.status)}`}>

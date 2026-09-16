@@ -2,6 +2,7 @@ from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
+from sqlalchemy.engine import make_url
 from app.db.base import Base
 from app.db.models import *  # noqa: F403 — ensure all models are registered on Base.metadata
 from app.core.config import get_settings
@@ -15,9 +16,13 @@ from alembic import context
 config = context.config
 
 settings = get_settings()
+database_url = make_url(settings.DATABASE_URL)
+if database_url.drivername == "postgresql+asyncpg":
+    database_url = database_url.set(drivername="postgresql")
 config.set_main_option(
     "sqlalchemy.url",
-    settings.DATABASE_URL.replace("+asyncpg", "")
+    # ConfigParser interprets percent signs, including URL-encoded passwords.
+    database_url.render_as_string(hide_password=False).replace("%", "%%")
 )
 
 

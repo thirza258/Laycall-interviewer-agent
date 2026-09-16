@@ -27,7 +27,11 @@ class MinIOClient:
                 secure=settings.MINIO_SECURE
             )
             # Ensure bucket exists
-            cls._ensure_bucket_exists(settings.MINIO_BUCKET)
+            try:
+                cls._ensure_bucket_exists(settings.MINIO_BUCKET)
+            except Exception:
+                cls._instance = None
+                raise
         return cls._instance
     
     @classmethod
@@ -127,7 +131,7 @@ class MinIOClient:
                 file_path=temp_path
             )
             return temp_path
-        except S3Error as e:
+        except Exception as e:
             logger.error(f"Failed to download {object_name} from MinIO: {e}")
             Path(temp_path).unlink(missing_ok=True)
             raise

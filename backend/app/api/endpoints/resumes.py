@@ -5,7 +5,7 @@ from sqlalchemy import select
 
 from app.db.session import get_db
 from app.db.models.resume import Resume
-from app.db.models.interview import Interview
+from app.db.models.interview import Interview, InterviewStatus
 from app.schemas.resume import ResumeResponse, ResumeUploadResponse
 from app.storage.storage import upload_to_minio, validate_file
 from app.services.resume_parser import extract_resume_text_from_bytes
@@ -40,6 +40,9 @@ async def upload_resume(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Interview with ID {interview_id} not found"
         )
+
+    if interview.status in (InterviewStatus.COMPLETED, InterviewStatus.ARCHIVED):
+        raise HTTPException(status_code=409, detail="This interview is already closed")
     
     try:
         validate_file(file.filename, file.size, file.content_type)
@@ -61,6 +64,13 @@ async def upload_resume(
             detail="Uploaded file is empty"
         )
 
+    raw_text = extract_resume_text_from_bytes(file_content, file.filename)
+    if not raw_text.strip():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="No readable text was found in this resume. Upload a PDF with selectable text or a DOCX file.",
+        )
+
     try:
         object_name, public_url = upload_to_minio(
             file_bytes=file_content,
@@ -77,12 +87,10 @@ async def upload_resume(
             detail="Failed to upload file to storage"
         )
     
-    raw_text = extract_resume_text_from_bytes(file_content, file.filename)
-    
     new_resume = Resume(
         interview_id=interview_id,
         file_path=object_name, 
-        raw_text=raw_text if raw_text else None
+        raw_text=raw_text
     )
     
     db.add(new_resume)

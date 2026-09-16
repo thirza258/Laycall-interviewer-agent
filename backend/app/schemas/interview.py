@@ -1,12 +1,14 @@
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, StringConstraints
 from datetime import datetime
-from typing import Optional
+from typing import Annotated, Optional
+
+JobDescriptionText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=10)]
 
 class JobDescriptionCreate(BaseModel):
-    raw_text: str = Field(..., min_length=10, description="Full job description text")
+    raw_text: JobDescriptionText = Field(..., description="Full job description text")
 
 class InterviewCreate(BaseModel):
-    job_description: str = Field(..., min_length=10, description="Job description to store")
+    job_description: JobDescriptionText = Field(..., description="Job description to store")
     resume_id: Optional[int] = Field(None, gt=0, description="ID of the resume to associate with this interview")
 
 class JobDescriptionResponse(BaseModel):

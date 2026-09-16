@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timezone
 from typing import Any, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -32,7 +33,9 @@ class InterviewSpecService:
     
     async def save_final_assessment(self, interview_id: int, assessment: FinalAssessment) -> dict:
         """Saves final assessment to interview_specs.json_data.final_assessment"""
-        return await self._upsert_spec(interview_id, "final_assessment", assessment.model_dump())
+        payload = assessment.model_dump()
+        payload["completed_at"] = datetime.now(timezone.utc).isoformat()
+        return await self._upsert_spec(interview_id, "final_assessment", payload)
 
     async def _upsert_spec(self, interview_id: int, key: str, value: Any) -> dict:
         result = await self.db.execute(

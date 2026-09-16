@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import  select
 from app.db.session import get_db
-from app.db.models.interview import Interview, InterviewStatus
+from app.db.models.interview import Interview
 from app.db.models.job_description import JobDescription
 from app.db.models.resume import Resume
 from app.schemas.interview import InterviewCreate, InterviewResponse, JobDescriptionResponse
@@ -33,6 +33,7 @@ async def create_interview(
     """
     Creates an Interview and associated JobDescription in a single transaction.
     """
+    resume = None
     if payload.resume_id is not None:
         resume_result = await db.execute(select(Resume).where(Resume.id == payload.resume_id))
         resume = resume_result.scalar_one_or_none()
@@ -51,6 +52,15 @@ async def create_interview(
         raw_text=payload.job_description
     )
     db.add(new_job_desc)
+
+    if resume is not None:
+        # Reuse the stored file and text without moving it out of the original
+        # interview. The generation pipeline looks up resumes by interview_id.
+        db.add(Resume(
+            interview_id=new_interview.id,
+            file_path=resume.file_path,
+            raw_text=resume.raw_text,
+        ))
 
     # 4. Commit transaction
     await db.commit()
@@ -71,11 +81,11 @@ async def create_interview(
     "/{interview_id}/question",
     response_model=QuestionResponse,
     summary="Get next interview question",
-    description="Retrieves the next question in the interview sequence. Use ?last_question_id=UUID to get the following one."
+    description="Retrieves the next question in the interview sequence. Use ?last_question_id=ID to get the following one."
 )
 async def get_next_question(
     interview_id: int,
-    last_question_id: int | None = Query(None, description="ID of the last answered question to fetch the next one"),
+    last_question_id: int | None = Query(None, gt=0, description="ID of the last answered question to fetch the next one"),
     db: AsyncSession = Depends(get_db),
     llm_client: OpenRouterClient = Depends(get_openrouter_client)
 ) -> QuestionResponse:
@@ -83,6 +93,15 @@ async def get_next_question(
     interview = (await db.execute(select(Interview).where(Interview.id == interview_id))).scalar_one_or_none()
     if not interview:
         raise HTTPException(status_code=404, detail="Interview not found")
+
+    last_q = None
+    if last_question_id is not None:
+        last_q = (await db.execute(select(Question).where(
+            Question.id == last_question_id,
+            Question.interview_id == interview_id,
+        ))).scalar_one_or_none()
+        if last_q is None:
+            raise HTTPException(status_code=404, detail="Last question ID not found in this interview")
 
     # 2. If generation failed during upload the interview has no questions at
     #    all. Retry it here so a transient LLM outage does not strand the
@@ -126,10 +145,7 @@ async def get_next_question(
     stmt = select(Question).where(Question.interview_id == interview_id).order_by(Question.sequence)
 
     # 4. If last_question_id provided, fetch sequence > that question's sequence
-    if last_question_id:
-        last_q = (await db.execute(select(Question).where(Question.id == last_question_id))).scalar_one_or_none()
-        if not last_q:
-            raise HTTPException(status_code=404, detail="Last question ID not found")
+    if last_q is not None:
         stmt = stmt.where(Question.sequence > last_q.sequence)
 
     result = await db.execute(stmt.limit(1))
@@ -190,7 +206,7 @@ async def get_interview_results(
     response_data = {
         "interview_id": interview.id,
         "status": interview.status,
-        "completed_at": interview.created_at if interview.status == InterviewStatus.COMPLETED else None,
+        "completed_at": None,
         **(assessment or {})  # Spread assessment fields if available
     }
     

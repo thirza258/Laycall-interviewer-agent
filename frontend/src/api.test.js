@@ -99,6 +99,15 @@ describe('submitAnswer and evaluateAnswer', () => {
 });
 
 describe('error handling', () => {
+  it('preserves the HTTP status for question exhaustion and retry handling', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(
+      { detail: 'No more questions available for this interview' }, { ok: false, status: 404 }
+    ));
+    await expect(api.getNextQuestion(1, 2)).rejects.toMatchObject({
+      status: 404, message: 'No more questions available for this interview',
+    });
+  });
+
   it('surfaces the API detail string', async () => {
     fetchMock.mockResolvedValue(
       jsonResponse({ detail: 'Interview not found' }, { ok: false, status: 404 })
@@ -147,6 +156,11 @@ describe('error handling', () => {
 });
 
 describe('healthCheck', () => {
+  it('rejects unhealthy HTTP responses', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ detail: 'Unavailable' }, { ok: false, status: 503 }));
+    await expect(api.healthCheck()).rejects.toMatchObject({ status: 503, message: 'Unavailable' });
+  });
+
   it('calls the unversioned health endpoint', async () => {
     fetchMock.mockResolvedValue(jsonResponse({ status: 'healthy', env: 'production' }));
 
