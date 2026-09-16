@@ -7,7 +7,7 @@
     <title>My Mock Interview — AI interview practice from your resume</title>
     <meta
       name="description"
-      content="Upload your resume and paste a job description. My Mock Interview writes questions for that exact pairing, scores every answer, and hands you a report."
+      content="Prepare with 30 interview courses and 180 practice questions, then try an AI mock interview tailored to your resume and job description."
     />
     <link rel="canonical" href="https://interview.nevatal.id/" />
     <meta name="robots" content="index, follow, max-image-preview:large" />
@@ -173,6 +173,14 @@
       section > .wrap > h2 { font-size: clamp(1.5rem, 2.6vw, 1.875rem); }
       .lede { max-width: 58ch; margin-top: 0.75rem; color: var(--ink-soft); }
 
+      .course-preview { background: #f8f7ff; }
+      .course-counts { color: var(--accent); font-size: 0.875rem; font-weight: 600; margin-bottom: 0.875rem; }
+      .course-topics { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr)); gap: 1rem; margin-top: 2rem; }
+      .course-topics li { padding: 1.25rem; background: #fff; border: 1px solid #e4dff7; border-radius: 10px; }
+      .course-topics h3 { font-size: 1rem; }
+      .course-topics p { font-size: 0.875rem; color: var(--ink-soft); margin-top: 0.5rem; }
+      .course-topics a { display: inline-block; margin-top: 0.875rem; font-size: 0.875rem; }
+
       /* Steps */
       .steps {
         display: grid;
@@ -255,8 +263,9 @@
     <header>
       <div class="wrap bar">
         <a class="mark" href="/">My Mock Interview</a>
-        <nav>
+        <nav aria-label="Main navigation">
           <a class="nav-link" href="#how-it-works">How it works</a>
+          <a class="nav-link" href="/app/#/courses">Courses</a>
           <a class="btn" href="/app/">Start practicing</a>
         </nav>
       </div>
@@ -272,8 +281,9 @@
         </p>
         <div class="cta">
           <a class="btn btn-lg" href="/app/">Start a practice interview</a>
-          <span class="fineprint">No sign-up. PDF or DOCX, up to 10&nbsp;MB.</span>
+          <a href="/app/#/courses">Explore interview courses &rarr;</a>
         </div>
+        <p class="fineprint">No sign-up. Learn first, or upload a PDF or DOCX resume to practice.</p>
       </div>
 
       <section id="how-it-works">
@@ -313,6 +323,24 @@
               </p>
             </li>
           </ol>
+        </div>
+      </section>
+
+      <section class="course-preview" id="courses">
+        <div class="wrap">
+          <p class="course-counts">30 courses &middot; 90 lessons &middot; 180 practice questions</p>
+          <h2>Know what to say. Practice how to say it.</h2>
+          <p class="lede">Short lessons, concrete examples and exercises help you build answers from your own experience. No resume upload needed.</p>
+          <ul class="course-topics">
+            <li><h3>Build a strong foundation</h3><p>Research a company, introduce yourself, explain your resume and communicate clearly.</p><a href="/app/#/courses/tell-me-about-yourself">Practice your introduction &rarr;</a></li>
+            <li><h3>Answer behavioral questions</h3><p>Use STAR stories to discuss teamwork, conflict, feedback, mistakes and leadership.</p><a href="/app/#/courses/star-stories">Build your story bank &rarr;</a></li>
+            <li><h3>Prepare for each round</h3><p>Navigate recruiter calls, hiring-manager interviews, panels, cases and follow-ups.</p><a href="/app/#/courses/recruiter-screen">Prepare for a recruiter call &rarr;</a></li>
+            <li><h3>Show your technical thinking</h3><p>Practice coding, system design, APIs, databases, testing and debugging discussions.</p><a href="/app/#/courses/coding-problem-solving">Work through a coding interview &rarr;</a></li>
+            <li><h3>Focus on your role</h3><p>Explore frontend, data, product, design, customer, sales and operations interviews.</p><a href="/app/#/courses/product-project">Explore product interviews &rarr;</a></li>
+            <li><h3>Take your next career step</h3><p>Prepare for first jobs, career changes, management interviews and offer conversations.</p><a href="/app/#/courses/first-job-internships">Prepare for your first job &rarr;</a></li>
+          </ul>
+          <div class="cta"><a class="btn" href="/app/#/courses">Browse all 30 courses</a><a href="/app/#/questions">Explore the question bank &rarr;</a></div>
+          <p class="lede fineprint">Save courses, track completed lessons and write practice answers. Your learning progress and notes stay in this browser.</p>
         </div>
       </section>
 
@@ -367,8 +395,9 @@
                   not from a recruiter, and they are not a hiring assessment.
                 </li>
                 <li>
-                  <b>Nothing is kept in your browser.</b> Reload the page and the interview
-                  list starts empty again.
+                  <b>Learning progress stays in this browser.</b> Course bookmarks, completed
+                  lessons and practice notes are saved locally. The mock interview list
+                  starts empty again when you reload.
                 </li>
               </ul>
             </div>

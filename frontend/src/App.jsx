@@ -1,8 +1,11 @@
-import { useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import LeftSidebar from './components/LeftSidebar';
 import ChatArea from './components/ChatArea';
 import RightSidebar from './components/RightSidebar';
 import * as api from './api';
+import useAppRoute from './hooks/useAppRoute';
+
+const LearningCenter = lazy(() => import('./components/learning/LearningCenter'));
 
 export default function App() {
   const [interviews, setInterviews] = useState([]);
@@ -10,6 +13,12 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const actionPending = useRef(false);
+  const route = useAppRoute();
+  const isLearning = route.section === 'courses' || route.section === 'questions';
+
+  useEffect(() => {
+    if (!isLearning) document.title = 'Mock Interview';
+  }, [isLearning]);
 
   const activeInterview = interviews.find((iv) => iv.id === activeId);
 
@@ -180,30 +189,42 @@ export default function App() {
     if (actionPending.current) return;
     setActiveId(id);
     setError(null);
+    if (isLearning) window.location.hash = '#/interviews';
   }
 
   return (
-    <div className="grid grid-cols-[260px_1fr_280px] h-screen overflow-hidden">
-      <LeftSidebar
-        interviews={interviews}
-        activeInterviewId={activeId}
-        onSelect={handleSelect}
-        onNew={() => handleSelect(null)}
-        disabled={loading}
-      />
-      <ChatArea
-        key={activeId ?? 'setup'}
-        interview={activeInterview}
-        messages={activeInterview?.messages ?? []}
-        onSend={handleSend}
-        onNext={handleNext}
-        onSetup={handleSetup}
-        onRetryEvaluation={handleRetryEvaluation}
-        onRetryResults={handleRetryResults}
-        loading={loading}
-        error={error}
-      />
-      <RightSidebar interview={activeInterview} />
+    <div className={isLearning ? 'grid lg:grid-cols-[240px_minmax(0,1fr)] h-dvh overflow-hidden bg-[#101022]' : 'grid grid-cols-[260px_1fr_280px] h-screen overflow-hidden'}>
+      <div className={isLearning ? 'hidden lg:block' : ''}>
+        <LeftSidebar
+          interviews={interviews}
+          activeInterviewId={activeId}
+          onSelect={handleSelect}
+          onNew={() => handleSelect(null)}
+          disabled={loading}
+          section={route.section}
+        />
+      </div>
+      {isLearning && (
+        <Suspense fallback={<main className="p-10 text-white" role="status">Loading courses…</main>}>
+          <LearningCenter route={route} />
+        </Suspense>
+      )}
+      {/* Keep drafts and the selected resume intact while browsing lessons. */}
+      <div hidden={isLearning} className={isLearning ? undefined : 'contents'}>
+        <ChatArea
+          key={activeId ?? 'setup'}
+          interview={activeInterview}
+          messages={activeInterview?.messages ?? []}
+          onSend={handleSend}
+          onNext={handleNext}
+          onSetup={handleSetup}
+          onRetryEvaluation={handleRetryEvaluation}
+          onRetryResults={handleRetryResults}
+          loading={loading}
+          error={error}
+        />
+        <RightSidebar interview={activeInterview} />
+      </div>
     </div>
   );
 }

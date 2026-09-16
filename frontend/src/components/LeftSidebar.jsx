@@ -1,6 +1,15 @@
-export default function LeftSidebar({ interviews, activeInterviewId, onSelect, onNew, disabled }) {
+export default function LeftSidebar({ interviews, activeInterviewId, onSelect, onNew, disabled, section = 'interviews' }) {
   return (
     <aside className="flex flex-col bg-[#1a1a2e] text-[#e0e0e0] h-screen overflow-y-auto">
+      <nav aria-label="Main navigation" className="flex flex-col gap-1 px-3 py-4 border-b border-[#2a2a4a]">
+        {[
+          ['interviews', 'Mock interviews'], ['courses', 'Courses & guides'], ['questions', 'Question bank'],
+        ].map(([id, label]) => <a key={id} href={`#/${id}`} aria-current={section === id ? 'page' : undefined}
+          aria-disabled={disabled} onClick={(event) => { if (disabled) event.preventDefault(); }}
+          className={`px-3 py-2.5 rounded-lg text-sm transition-colors ${section === id ? 'bg-[#30274a] text-[#e4dbff]' : 'text-[#b7b1ca] hover:bg-[#242039]'} ${disabled ? 'opacity-50' : ''}`}>
+          {label}
+        </a>)}
+      </nav>
       <div className="flex justify-between items-center px-4 py-5 border-b border-[#2a2a4a]">
         <h2 className="text-lg font-semibold text-white m-0">Interviews</h2>
         <button

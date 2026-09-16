@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
 import * as api from './api';
@@ -15,6 +15,8 @@ const complete = {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  window.history.replaceState({}, '', '/app/');
+  window.localStorage.clear();
   Element.prototype.scrollIntoView = vi.fn();
   let nextId = 1;
   api.createInterview.mockImplementation(async () => ({ id: nextId++, status: 'pending', created_at: '2026-09-16T12:00:00Z' }));
@@ -52,6 +54,25 @@ async function answerQuestion(text = 'It suspends execution while waiting for I/
 }
 
 describe('interview flow', () => {
+  it('keeps interview progress and the unsent answer when visiting courses', async () => {
+    render(<App />);
+    await setupInterview();
+    await firstQuestion();
+    fireEvent.change(screen.getByPlaceholderText('Type your answer...'), { target: { value: 'My draft answer' } });
+    act(() => {
+      window.history.pushState({}, '', '#/courses/tell-me-about-yourself');
+      window.dispatchEvent(new HashChangeEvent('hashchange'));
+    });
+    await screen.findByRole('heading', { name: 'Answer “Tell me about yourself”' });
+    expect(screen.queryByRole('button', { name: 'Send' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Interview 1, in_progress' }));
+    await screen.findByRole('button', { name: 'Send' });
+    expect(screen.getByPlaceholderText('Type your answer...').value).toBe('My draft answer');
+    expect(screen.getByText('Explain async/await.')).toBeTruthy();
+    await answerQuestion('My draft answer');
+    expect(api.submitAnswer).toHaveBeenCalledWith(1, 11, 'My draft answer');
+  });
+
   it('advances through questions and displays the final report', async () => {
     render(<App />);
     await setupInterview();

@@ -2,6 +2,12 @@
 
 AI-powered mock interview platform. Upload your resume and a job description — the app generates a tailored interview, asks questions, and evaluates your answers using an LLM.
 
+The interview academy adds **30 courses, 90 lessons and 180 guided practice questions** covering foundations, behavioral answers, interview formats, technical interviews, role-specific preparation and career moves. Each lesson includes an explanation, actionable steps, an illustrative example and an exercise.
+
+Open **Courses & guides** in the app sidebar or visit `/app/#/courses`. Search the library, save courses, complete lessons, and practice common questions at `/app/#/questions`. Course and lesson links can be shared directly. The library requires no resume upload, API key or running backend; it is bundled with the frontend and loaded when opened. Mock interviews still require the backend and LLM configuration below.
+
+Learning progress, bookmarks and notes are stored in this browser under `laycall.learning.v1`; they do not sync between devices and clearing browser storage removes them. Practice answers in the course library are self-guided and are not sent for AI scoring. The mock interview list remains in memory and resets on reload.
+
 ## Tech Stack
 
 | Layer | Technology |
