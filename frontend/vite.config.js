@@ -23,7 +23,7 @@ export default defineConfig({
     // React app moves under /app/, which robots.txt disallows.
     rollupOptions: {
       input: {
-        landing: resolve(__dirname, "index.html"),
+        main: resolve(__dirname, "index.html"),
         app: resolve(__dirname, "app/index.html"),
       },
     },

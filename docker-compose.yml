@@ -69,7 +69,7 @@ services:
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
       MINIO_BUCKET: ${MINIO_BUCKET:-interview}
       MINIO_SECURE: "False"
-      MINIO_PUBLIC_URL: http://localhost:9000
+      MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL:-http://localhost:${MINIO_API_PORT:-9000}}
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     depends_on:
