@@ -52,7 +52,7 @@ function CourseLibrary({ learning }) {
         <a className="academy-text-link" href="#/interviews">Open interview practice →</a>
       </aside>
     </section>
-    <div className="academy-stats"><span><strong>{courses.length}</strong> courses</span><span><strong>{lessonCount}</strong> lessons</span><span><strong>{questions.length}</strong> practice questions</span><span><strong>{learning.progress.completed.length}</strong> lessons completed</span></div>
+    <div className="academy-stats"><span><strong>{courses.length}</strong> courses</span><span><strong>{lessonCount}</strong> lessons</span><span><strong>{questions.length}</strong> practice questions</span><span><strong>{learning.progress.completed.length}</strong> {learning.progress.completed.length === 1 ? 'lesson completed' : 'lessons completed'}</span></div>
     {inProgress && <div className="academy-resume"><div><span className="academy-eyebrow">PICK UP WHERE YOU LEFT OFF</span><strong>{inProgress.title}</strong></div><a className="academy-text-link" href={`${courseHref(inProgress)}/${inProgress.lessons.find((lesson) => !learning.progress.completed.includes(lesson.key)).id}`}>Continue learning →</a></div>}
     <div className="academy-section-heading"><div><h2>Find your next course</h2><p>Start anywhere. Every course includes examples and guided practice.</p></div></div>
     <div className="academy-filters">
@@ -119,7 +119,7 @@ function QuestionBank({ courseId, learning }) {
 
   return <>
     <a className="academy-text-link" href={course ? courseHref(course) : '#/courses'}>← {course ? 'Back to course' : 'All courses'}</a>
-    <header className="academy-course-header"><p className="academy-eyebrow">THINK IT THROUGH. SAY IT OUT LOUD.</p><h1>{course ? 'Practice this course' : 'The question bank'}</h1><p>{course ? course.title : `${questions.length} questions with answer guides, space to practice and a link to the lesson behind each one.`}</p><span className="academy-course-meta">{practicedCount} questions practiced · Self-guided practice, without AI scoring</span></header>
+    <header className="academy-course-header"><p className="academy-eyebrow">THINK IT THROUGH. SAY IT OUT LOUD.</p><h1>{course ? 'Practice this course' : 'The question bank'}</h1><p>{course ? course.title : `${questions.length} questions with answer guides, space to practice and a link to the lesson behind each one.`}</p><span className="academy-course-meta">{practicedCount} {practicedCount === 1 ? 'question practiced' : 'questions practiced'} · Self-guided practice, without AI scoring</span></header>
     <div className="academy-filters">
       <label className="academy-search"><span className="sr-only">Search questions</span><input type="search" value={search} placeholder="Search a question or skill…" onChange={(event) => { setSearch(event.target.value); setPage(0); }} /></label>
       {!course && <label className="academy-select"><span className="sr-only">Question topic</span><select value={category} onChange={(event) => { setCategory(event.target.value); setPage(0); }}><option>All topics</option>{categories.map((item) => <option key={item}>{item}</option>)}</select></label>}

@@ -13,6 +13,9 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  test: {
+    setupFiles: ['./src/test/setup.js'],
+  },
   build: {
     // Two entries, because the two halves of the site have opposite needs.
     // `index.html` is the landing page: static, zero JavaScript, indexable —
