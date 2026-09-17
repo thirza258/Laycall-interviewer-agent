@@ -6,6 +6,7 @@ import * as api from './api';
 import useAppRoute from './hooks/useAppRoute';
 
 const LearningCenter = lazy(() => import('./components/learning/LearningCenter'));
+const HrWorkspace = lazy(() => import('./components/hr/HrWorkspace'));
 
 export default function App() {
   const [interviews, setInterviews] = useState([]);
@@ -15,10 +16,12 @@ export default function App() {
   const actionPending = useRef(false);
   const route = useAppRoute();
   const isLearning = route.section === 'courses' || route.section === 'questions';
+  const isHr = route.section === 'hr';
+  const isWorkspace = isLearning || isHr;
 
   useEffect(() => {
-    if (!isLearning) document.title = 'Mock Interview';
-  }, [isLearning]);
+    if (!isLearning) document.title = isHr ? 'HR Interview Practice · Mock Interview' : 'Mock Interview';
+  }, [isLearning, isHr]);
 
   const activeInterview = interviews.find((iv) => iv.id === activeId);
 
@@ -189,12 +192,12 @@ export default function App() {
     if (actionPending.current) return;
     setActiveId(id);
     setError(null);
-    if (isLearning) window.location.hash = '#/interviews';
+    if (isWorkspace) window.location.hash = '#/interviews';
   }
 
   return (
-    <div className={isLearning ? 'grid lg:grid-cols-[240px_minmax(0,1fr)] h-dvh overflow-hidden bg-[#101022]' : 'grid grid-cols-[260px_1fr_280px] h-screen overflow-hidden'}>
-      <div className={isLearning ? 'hidden lg:block' : ''}>
+    <div className={isWorkspace ? 'grid lg:grid-cols-[240px_minmax(0,1fr)] h-dvh overflow-hidden bg-[#101022]' : 'grid grid-cols-[260px_1fr_280px] h-screen overflow-hidden'}>
+      <div className={isWorkspace ? 'hidden lg:block' : ''}>
         <LeftSidebar
           interviews={interviews}
           activeInterviewId={activeId}
@@ -209,8 +212,13 @@ export default function App() {
           <LearningCenter route={route} />
         </Suspense>
       )}
+      {isHr && (
+        <Suspense fallback={<main className="p-10 text-white" role="status">Loading HR practice…</main>}>
+          <HrWorkspace key={route.sessionId || 'new'} sessionId={route.sessionId} invalidRoute={Boolean(route.lessonId || route.extra)} />
+        </Suspense>
+      )}
       {/* Keep drafts and the selected resume intact while browsing lessons. */}
-      <div hidden={isLearning} className={isLearning ? undefined : 'contents'}>
+      <div hidden={isWorkspace} className={isWorkspace ? undefined : 'contents'}>
         <ChatArea
           key={activeId ?? 'setup'}
           interview={activeInterview}

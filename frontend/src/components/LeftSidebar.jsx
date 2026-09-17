@@ -3,13 +3,21 @@ export default function LeftSidebar({ interviews, activeInterviewId, onSelect, o
     <aside className="flex flex-col bg-[#1a1a2e] text-[#e0e0e0] h-screen overflow-y-auto">
       <nav aria-label="Main navigation" className="flex flex-col gap-1 px-3 py-4 border-b border-[#2a2a4a]">
         {[
-          ['interviews', 'Mock interviews'], ['courses', 'Courses & guides'], ['questions', 'Question bank'],
+          ['interviews', 'Mock interviews'], ['hr', 'HR interview mode'], ['courses', 'Courses & guides'], ['questions', 'Question bank'],
         ].map(([id, label]) => <a key={id} href={`#/${id}`} aria-current={section === id ? 'page' : undefined}
           aria-disabled={disabled} onClick={(event) => { if (disabled) event.preventDefault(); }}
           className={`px-3 py-2.5 rounded-lg text-sm transition-colors ${section === id ? 'bg-[#30274a] text-[#e4dbff]' : 'text-[#b7b1ca] hover:bg-[#242039]'} ${disabled ? 'opacity-50' : ''}`}>
           {label}
         </a>)}
       </nav>
+      {section === 'hr' ? (
+        <div className="px-4 py-5">
+          <h2 className="text-lg font-semibold text-white mb-4">HR practice</h2>
+          <a href="#/hr" className="block rounded-lg bg-indigo-600 hover:bg-indigo-500 px-3.5 py-2.5 text-sm text-white">+ New candidate</a>
+          <p className="text-sm text-[#aaa4bc] mt-5 leading-relaxed">You ask the questions. Your AI candidate responds with the skills and experience you choose.</p>
+          <p className="text-xs text-[#aaa4bc] mt-4 leading-relaxed">Reopen a saved conversation from Recent HR interviews.</p>
+        </div>
+      ) : <>
       <div className="flex justify-between items-center px-4 py-5 border-b border-[#2a2a4a]">
         <h2 className="text-lg font-semibold text-white m-0">Interviews</h2>
         <button
@@ -47,6 +55,7 @@ export default function LeftSidebar({ interviews, activeInterviewId, onSelect, o
           ))
         )}
       </div>
+      </>}
     </aside>
   );
 }

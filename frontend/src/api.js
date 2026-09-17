@@ -76,3 +76,22 @@ export async function healthCheck() {
   if (!res.ok) throw await readError(res);
   return res.json();
 }
+
+export function createHrInterview(id, profile) {
+  return request('/hr-interviews', { method: 'POST', body: JSON.stringify({ id, profile }) });
+}
+
+export function getHrInterview(id, signal) {
+  return request(`/hr-interviews/${encodeURIComponent(id)}`, { signal });
+}
+
+export function askHrCandidate(id, question, requestId, expectedTurnCount) {
+  return request(`/hr-interviews/${encodeURIComponent(id)}/questions`, {
+    method: 'POST',
+    body: JSON.stringify({ question, request_id: requestId, expected_turn_count: expectedTurnCount }),
+  });
+}
+
+export function finishHrInterview(id) {
+  return request(`/hr-interviews/${encodeURIComponent(id)}/finish`, { method: 'POST' });
+}

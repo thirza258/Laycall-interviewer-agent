@@ -2,6 +2,12 @@
 
 AI-powered mock interview platform. Upload your resume and a job description — the app generates a tailored interview, asks questions, and evaluates your answers using an LLM.
 
+**HR interview mode** reverses the roles: you interview a fictional AI candidate. Open **HR interview mode** in the sidebar or visit `/app/#/hr`. Set a candidate name, target role, junior/mid/senior experience level, 1–12 skills, and an optional background. Role presets provide editable starting points. No resume or object storage is needed for this mode.
+
+Ask your own questions, use the skill-based question starters, and follow up on the candidate’s answers. The candidate keeps their profile and conversation context. **Finish & get feedback** reviews your interviewing technique, question quality, follow-ups, and coverage of the selected skills. Sessions allow up to 30 questions; feedback is about the interviewer, not a hiring assessment of the fictional candidate.
+
+HR profiles, conversations and feedback are saved in the database. Recent session shortcuts are stored in this browser under `laycall.hr.sessions.v1`; drafts stay in the current tab’s session storage. Reopen a session from **Recent HR interviews** or its `/app/#/hr/{uuid}` URL. There is no account or ownership layer: anyone with a session URL can access it, so use fictional practice profiles. If a model call fails, retry the question or feedback; question retries reuse the same request ID to avoid duplicate turns. Existing installations must run `cd backend && alembic upgrade head` to add the HR sessions table. The backend and OpenRouter configuration below are required for AI responses.
+
 The interview academy adds **30 courses, 90 lessons and 180 guided practice questions** covering foundations, behavioral answers, interview formats, technical interviews, role-specific preparation and career moves. Each lesson includes an explanation, actionable steps, an illustrative example and an exercise.
 
 Open **Courses & guides** in the app sidebar or visit `/app/#/courses`. Search the library, save courses, complete lessons, and practice common questions at `/app/#/questions`. Course and lesson links can be shared directly. The library requires no resume upload, API key or running backend; it is bundled with the frontend and loaded when opened. Mock interviews still require the backend and LLM configuration below.
@@ -273,3 +279,7 @@ it in Google Search Console.
 | `POST` | `/api/v1/interviews/{id}/answers` | Submit an answer |
 | `POST` | `/api/v1/interviews/{id}/answers/{answer_id}/evaluate` | Score an answer; the last one also writes the final report |
 | `GET` | `/api/v1/interviews/{id}/results` | Final report (scores are null until every question is answered) |
+| `POST` | `/api/v1/hr-interviews` | Create a fictional candidate session from a profile |
+| `GET` | `/api/v1/hr-interviews/{uuid}` | Restore an HR conversation and any feedback |
+| `POST` | `/api/v1/hr-interviews/{uuid}/questions` | Ask the candidate a question with conversation context |
+| `POST` | `/api/v1/hr-interviews/{uuid}/finish` | Complete the session and coach the interviewer |

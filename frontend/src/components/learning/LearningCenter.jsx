@@ -146,7 +146,7 @@ export default function LearningCenter({ route }) {
   }, [route.section, route.courseId, route.lessonId, course]);
   return (
     <main className="learning-page" ref={main} id="learning-content">
-      <div className="academy-topbar"><a href="/">My Mock Interview <span>/ Learn</span></a><nav aria-label="Learning navigation"><a aria-current={route.section === 'courses' ? 'page' : undefined} href="#/courses">Courses</a><a aria-current={route.section === 'questions' ? 'page' : undefined} href="#/questions">Question bank</a><a href="#/interviews">Mock interview ↗</a></nav></div>
+      <div className="academy-topbar"><a href="/">My Mock Interview <span>/ Learn</span></a><nav aria-label="Learning navigation"><a aria-current={route.section === 'courses' ? 'page' : undefined} href="#/courses">Courses</a><a aria-current={route.section === 'questions' ? 'page' : undefined} href="#/questions">Question bank</a><a href="#/hr">HR practice ↗</a><a href="#/interviews">Mock interview ↗</a></nav></div>
       <div className="academy-content">
         {learning.persistenceError && <p className="academy-storage-warning" role="status">Saved progress could not be read or written. You can keep learning, but this session’s changes may not survive a reload.</p>}
         {route.extra || (route.section === 'questions' && route.lessonId) ? <NotFound /> : route.section === 'questions'

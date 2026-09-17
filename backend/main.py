@@ -4,7 +4,7 @@ from fastapi import FastAPI
 
 from app.core.config import get_settings
 from app.db.session import engine 
-from app.api.endpoints import resumes, interviews, answers
+from app.api.endpoints import resumes, interviews, answers, hr_interviews
 from app.llm.client import get_openrouter_client
 
 
@@ -57,6 +57,7 @@ app = FastAPI(
 app.include_router(resumes.router)
 app.include_router(interviews.router)
 app.include_router(answers.router)
+app.include_router(hr_interviews.router)
 
 @app.get("/health")
 async def health_check():

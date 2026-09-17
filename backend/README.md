@@ -156,5 +156,35 @@ All routes are mounted under `/api/v1`.
 | `POST` | `/api/v1/interviews/{id}/answers` | Submit an answer |
 | `POST` | `/api/v1/interviews/{id}/answers/{answer_id}/evaluate` | Score an answer; the last one also writes the final report |
 | `GET` | `/api/v1/interviews/{id}/results` | Final report (scores are null until every question is answered) |
+| `POST` | `/api/v1/hr-interviews` | Create an HR practice session with a fictional candidate profile |
+| `GET` | `/api/v1/hr-interviews/{uuid}` | Restore the profile, conversation, and interviewer feedback |
+| `POST` | `/api/v1/hr-interviews/{uuid}/questions` | Generate and save a contextual candidate response |
+| `POST` | `/api/v1/hr-interviews/{uuid}/finish` | Generate interviewer coaching and complete the session |
 
 Full schema available at `/docs` and `/redoc`.
+
+### HR practice
+
+Run `alembic upgrade head` before using this mode. It uses a separate `hr_interviews` table and does not require a resume, job description or MinIO.
+
+Create a session with an optional client-generated UUID `id` and a `profile`:
+
+```json
+{
+  "profile": {
+    "name": "Alex Morgan",
+    "role": "Backend engineer",
+    "level": "senior",
+    "skills": ["Python", "SQL", "Communication"],
+    "background": "Built scheduling tools at a fictional startup."
+  }
+}
+```
+
+`level` accepts `junior`, `mid` or `senior`. Skills are trimmed and deduplicated without case sensitivity, with 1–12 entries of at most 60 characters each. Candidate names, roles and background are limited to 80, 120 and 2000 characters respectively.
+
+Send questions as `{"request_id": "<uuid>", "expected_turn_count": 0, "question": "Tell me about a Python project."}`. Use the current number of saved turns for `expected_turn_count`. Reuse the same `request_id` when retrying the same question; a saved response is returned without another model call. Questions are limited to 2000 characters and sessions to 30 turns. All responses include the complete saved session.
+
+At least one answered question is required to finish. Failed model calls return 503 or 504 and leave the saved conversation available for retry. Finishing is idempotent; completed sessions reject new questions. Conditional revision updates reject concurrent changes with 409 so another tab cannot silently overwrite a turn or produce a report missing the latest answer. Reload the session after a conflict.
+
+The UUID URL grants access to a session, consistent with this app’s account-free setup. Use fictional candidate data. Browser session shortcuts do not synchronize between devices, but a session URL can be reopened anywhere the same backend is available.

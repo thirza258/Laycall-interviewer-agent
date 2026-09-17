@@ -5,6 +5,7 @@ from app.db.models.interview_spec import InterviewSpec
 from app.db.models.question import Question
 from app.db.models.answer import Answer
 from app.db.models.evaluation import Evaluation
+from app.db.models.hr_interview import HrInterview
 
 __all__ = [
     "Interview",
@@ -13,5 +14,6 @@ __all__ = [
     "InterviewSpec",
     "Question",    
     "Answer",
-    "Evaluation"
+    "Evaluation",
+    "HrInterview",
 ]
