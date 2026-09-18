@@ -54,4 +54,16 @@ describe('interview curriculum', () => {
     expect(courseMatches(courseById.get('backend-api-databases'), 'transaction')).toBe(true);
     expect(courseMatches(courseById.get('star-stories'), 'unrelated-query')).toBe(false);
   });
+
+  it('includes all courses in sitemap.xml with canonical domain and valid structure', () => {
+    const sitemap = readFileSync(new URL('../../../public/sitemap.xml', import.meta.url), 'utf8');
+    expect(sitemap).toContain('<loc>https://interview.nevatal.id/</loc>');
+    expect(sitemap).toContain('<loc>https://interview.nevatal.id/courses</loc>');
+    expect(sitemap).toContain('<loc>https://interview.nevatal.id/questions</loc>');
+    expect(sitemap).toContain('<loc>https://interview.nevatal.id/hr</loc>');
+    expect(sitemap).toContain('<loc>https://interview.nevatal.id/app/</loc>');
+    for (const course of courses) {
+      expect(sitemap).toContain(`<loc>https://interview.nevatal.id/courses/${course.id}</loc>`);
+    }
+  });
 });

@@ -2,9 +2,12 @@
 
 User-agent: *
 Allow: /
+Allow: /courses
+Allow: /questions
+Allow: /hr
+Allow: /app/
 
-# The app itself has no crawlable content: it needs JavaScript, every page is
-# the same shell, and interview URLs are private to whoever created them.
-Disallow: /app/
+# Disallow internal backend API routes
+Disallow: /api/
 
 Sitemap: https://interview.nevatal.id/sitemap.xml

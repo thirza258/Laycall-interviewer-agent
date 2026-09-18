@@ -237,19 +237,22 @@ Interviewer/
     ├── src/                  # React application
     └── public/               # Copied to the site root as-is
         ├── robots.txt        # Allows /, disallows /app/
-        ├── sitemap.xml       # The one indexable URL
+        ├── sitemap.xml       # Sitemap containing 35 indexable URLs (landing, sections & 30 courses)
         └── og.png            # 1200x630 social preview
 ```
 
 ## Pages and SEO
 
-The site is two things served from one nginx container, because the two halves
-want opposite treatment from a crawler:
+The site serves static landing content alongside crawlable React SPA pages:
 
 | Route | What it is | Indexed |
 |---|---|---|
 | `/` | Landing page. Plain HTML, inlined CSS, no JavaScript, so the copy is in the bytes a crawler receives. | Yes |
-| `/app/` | The React app. Needs JavaScript, renders the same shell for every interview. | No — `robots.txt` disallows it |
+| `/courses`, `/courses/{id}` | Interview courses and guides in the React SPA. | Yes |
+| `/questions` | Question bank in the React SPA. | Yes |
+| `/hr` | HR interview practice in the React SPA. | Yes |
+| `/app/` | Mock interview app shell. | Yes |
+| `/api/` | Backend REST endpoints. | No — `robots.txt` disallows it |
 
 Every absolute URL is written out as a literal — crawlers and social scrapers
 need them absolute — so moving the site off `interview.nevatal.id` is a
@@ -258,14 +261,14 @@ find-and-replace over three files:
 - `frontend/index.html` — the canonical link, `og:url`, `og:image`,
   `twitter:image`, the JSON-LD `url`, and the domain shown in the footer
 - `frontend/public/robots.txt` — the `Sitemap:` line
-- `frontend/public/sitemap.xml` — the `<loc>`
+- `frontend/public/sitemap.xml` — the `<loc>` tags
 
 Renaming the product is the same kind of edit: "My Mock Interview" appears nine
 times in `frontend/index.html` (title, the Open Graph and Twitter tags, the
 JSON-LD `name`, the header wordmark, the footer) and nowhere else on the
 landing page.
 
-When the landing copy changes, bump `<lastmod>` in `sitemap.xml` and resubmit
+When page content changes, bump `<lastmod>` in `sitemap.xml` and resubmit
 it in Google Search Console.
 
 ## API Endpoints
