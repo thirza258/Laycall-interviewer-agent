@@ -1,6 +1,7 @@
 # https://interview.nevatal.id/robots.txt
 
 User-agent: *
+Content-Signal: ai-train=yes, search=yes, ai-input=yes
 Allow: /
 Allow: /courses
 Allow: /questions
