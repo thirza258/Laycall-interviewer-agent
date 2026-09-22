@@ -1,0 +1,40 @@
+{
+  "name": "Mock Interviewer Agent",
+  "version": "1.0.0",
+  "description": "AI-powered mock interview practice, technical assessment, and resume analysis assistant.",
+  "url": "https://interview.nevatal.id",
+  "supportedInterfaces": [
+    {
+      "url": "https://interview.nevatal.id/mcp",
+      "protocol": "mcp"
+    },
+    {
+      "url": "https://interview.nevatal.id/api",
+      "protocol": "http"
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "interview-practice",
+      "name": "Interview Practice",
+      "description": "Conduct dynamic mock interviews tailored to resumes and job requirements"
+    },
+    {
+      "id": "resume-analysis",
+      "name": "Resume Analysis",
+      "description": "Analyze candidate resumes and evaluate technical competencies"
+    }
+  ],
+  "skills": [
+    {
+      "id": "interview-prep",
+      "name": "Interview Preparation",
+      "description": "Generate situational, behavioral, and technical interview questions."
+    },
+    {
+      "id": "answer-evaluation",
+      "name": "Answer Scoring & Feedback",
+      "description": "Evaluate user answers and generate structured improvement reports."
+    }
+  ]
+}

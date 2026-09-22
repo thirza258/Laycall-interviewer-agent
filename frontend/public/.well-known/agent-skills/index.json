@@ -1,0 +1,12 @@
+{
+  "$schema": "https://schemas.agentskills.io/discovery/0.2.0/schema.json",
+  "skills": [
+    {
+      "name": "interview-practice",
+      "type": "skill-md",
+      "description": "Conduct AI-powered mock interviews, evaluate technical and behavioral answers, and provide feedback on Interviewer.",
+      "url": "https://interview.nevatal.id/skills/interview-practice/SKILL.md",
+      "digest": "sha256:2fb1f8ee8f3ba5b576367debea5b26db7995b416ce6e2a7ab6b7c5883c57095f"
+    }
+  ]
+}

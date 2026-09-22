@@ -1,0 +1,16 @@
+{
+  "serverInfo": {
+    "name": "interviewer-mcp",
+    "version": "1.0.0"
+  },
+  "endpoint": "https://interview.nevatal.id/mcp",
+  "transport": {
+    "type": "streamable-http",
+    "url": "https://interview.nevatal.id/mcp"
+  },
+  "capabilities": {
+    "tools": true,
+    "resources": true,
+    "prompts": true
+  }
+}

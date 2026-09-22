@@ -13,6 +13,38 @@
     <meta name="robots" content="index, follow, max-image-preview:large" />
     <meta name="theme-color" content="#ffffff" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <script>
+      (() => {
+        function registerWebMcpTools() {
+          if (!('modelContext' in navigator) || !navigator.modelContext) return;
+          try {
+            const controller = new AbortController();
+            navigator.modelContext.registerTool({
+              name: 'search_interview_questions',
+              title: 'Search Interview Questions',
+              description: 'Search interview questions, courses, and practice materials on My Mock Interview.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  query: { type: 'string', description: 'Search query for interview questions or topics' }
+                },
+                required: ['query']
+              },
+              execute: async ({ query }) => {
+                return {
+                  content: [{ type: 'text', text: `Results for ${query}: Visit https://interview.nevatal.id/questions or /courses` }]
+                };
+              }
+            }, { signal: controller.signal });
+          } catch (e) {}
+        }
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', registerWebMcpTools);
+        } else {
+          registerWebMcpTools();
+        }
+      })();
+    </script>
 
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="My Mock Interview" />
