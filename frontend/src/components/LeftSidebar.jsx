@@ -1,6 +1,18 @@
+import Logo from './Logo';
+
 export default function LeftSidebar({ interviews, activeInterviewId, onSelect, onNew, disabled, section = 'interviews' }) {
   return (
     <aside className="flex flex-col bg-[#1a1a2e] text-[#e0e0e0] h-screen overflow-y-auto">
+      <a
+        href="/"
+        className="flex items-center gap-2.5 px-4 py-3.5 border-b border-[#2a2a4a] hover:bg-[#242039] transition-colors no-underline"
+      >
+        <Logo className="w-8 h-8 rounded-lg shadow-sm flex-shrink-0" idPrefix="nav-logo" />
+        <div className="flex flex-col leading-tight">
+          <span className="font-bold text-white text-sm tracking-tight">Mock Interview</span>
+          <span className="text-[11px] text-[#818cf8] font-medium">AI Career Prep</span>
+        </div>
+      </a>
       <nav aria-label="Main navigation" className="flex flex-col gap-1 px-3 py-4 border-b border-[#2a2a4a]">
         {[
           ['interviews', 'Mock interviews'], ['hr', 'HR interview mode'], ['courses', 'Courses & guides'], ['questions', 'Question bank'],

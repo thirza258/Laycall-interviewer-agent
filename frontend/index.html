@@ -11,8 +11,9 @@
     />
     <link rel="canonical" href="https://interview.nevatal.id/" />
     <meta name="robots" content="index, follow, max-image-preview:large" />
-    <meta name="theme-color" content="#ffffff" />
+    <meta name="theme-color" content="#4f46e5" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
     <script>
       (() => {
         function registerWebMcpTools() {
@@ -151,11 +152,22 @@
         min-height: 4rem;
       }
       .mark {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.625rem;
         color: var(--ink);
         font-weight: 650;
         letter-spacing: -0.02em;
+        text-decoration: none;
       }
       .mark:hover { text-decoration: none; }
+      .mark-logo {
+        width: 2rem;
+        height: 2rem;
+        border-radius: 7px;
+        flex-shrink: 0;
+        box-shadow: 0 2px 6px rgba(79, 70, 229, 0.25);
+      }
       .bar nav {
         display: flex;
         align-items: center;
@@ -273,6 +285,18 @@
         flex-wrap: wrap;
         gap: 0.5rem 1.5rem;
         justify-content: space-between;
+        align-items: center;
+      }
+      .foot-brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .foot-logo {
+        width: 1.25rem;
+        height: 1.25rem;
+        border-radius: 4px;
+        flex-shrink: 0;
       }
 
       @media (max-width: 34rem) {
@@ -294,7 +318,45 @@
 
     <header>
       <div class="wrap bar">
-        <a class="mark" href="/">My Mock Interview</a>
+        <a class="mark" href="/">
+          <svg class="mark-logo" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <defs>
+              <linearGradient id="hdr-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#4F46E5" />
+                <stop offset="45%" stop-color="#4338CA" />
+                <stop offset="100%" stop-color="#312E81" />
+              </linearGradient>
+              <radialGradient id="hdr-glow" cx="25%" cy="20%" r="70%">
+                <stop offset="0%" stop-color="#818CF8" stop-opacity="0.4" />
+                <stop offset="60%" stop-color="#6366F1" stop-opacity="0.1" />
+                <stop offset="100%" stop-color="#4338CA" stop-opacity="0" />
+              </radialGradient>
+              <linearGradient id="hdr-bars" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#6366F1" />
+                <stop offset="50%" stop-color="#4F46E5" />
+                <stop offset="100%" stop-color="#7C3AED" />
+              </linearGradient>
+              <linearGradient id="hdr-sparkle" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#38BDF8" />
+                <stop offset="100%" stop-color="#818CF8" />
+              </linearGradient>
+            </defs>
+            <rect width="512" height="512" rx="116" fill="url(#hdr-bg)" />
+            <rect width="512" height="512" rx="116" fill="url(#hdr-glow)" />
+            <rect width="504" height="504" x="4" y="4" rx="112" fill="none" stroke="white" stroke-width="3" stroke-opacity="0.2" />
+            <path d="M 160 144 h 176 a 48 48 0 0 1 48 48 v 116 a 48 48 0 0 1 -48 48 h -112 l -68 44 c 10 -18 16 -34 16 -44 h -12 a 48 48 0 0 1 -48 -48 v -116 a 48 48 0 0 1 48 -48 z" fill="#FFFFFF" />
+            <g fill="url(#hdr-bars)">
+              <rect x="165" y="194" width="22" height="112" rx="11" />
+              <rect x="201" y="222" width="22" height="56" rx="11" />
+              <rect x="237" y="206" width="22" height="88" rx="11" />
+              <rect x="273" y="222" width="22" height="56" rx="11" />
+              <rect x="309" y="194" width="22" height="112" rx="11" />
+            </g>
+            <path d="M 398 92 Q 398 128 434 128 Q 398 128 398 164 Q 398 128 362 128 Q 398 128 398 92 Z" fill="url(#hdr-sparkle)" />
+            <path d="M 436 74 Q 436 88 450 88 Q 436 88 436 102 Q 436 88 422 88 Q 436 88 436 74 Z" fill="#38BDF8" opacity="0.95" />
+          </svg>
+          <span>My Mock Interview</span>
+        </a>
         <nav aria-label="Main navigation">
           <a class="nav-link" href="#how-it-works">How it works</a>
           <a class="nav-link" href="/app/#/courses">Courses</a>
@@ -450,7 +512,21 @@
 
     <footer>
       <div class="wrap">
-        <span>My Mock Interview — interview.nevatal.id</span>
+        <span class="foot-brand">
+          <svg class="foot-logo" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <rect width="512" height="512" rx="116" fill="#4F46E5" />
+            <path d="M 160 144 h 176 a 48 48 0 0 1 48 48 v 116 a 48 48 0 0 1 -48 48 h -112 l -68 44 c 10 -18 16 -34 16 -44 h -12 a 48 48 0 0 1 -48 -48 v -116 a 48 48 0 0 1 48 -48 z" fill="#FFFFFF" />
+            <g fill="#4F46E5">
+              <rect x="165" y="194" width="22" height="112" rx="11" />
+              <rect x="201" y="222" width="22" height="56" rx="11" />
+              <rect x="237" y="206" width="22" height="88" rx="11" />
+              <rect x="273" y="222" width="22" height="56" rx="11" />
+              <rect x="309" y="194" width="22" height="112" rx="11" />
+            </g>
+            <path d="M 398 92 Q 398 128 434 128 Q 398 128 398 164 Q 398 128 362 128 Q 398 128 398 92 Z" fill="#38BDF8" />
+          </svg>
+          <span>My Mock Interview — interview.nevatal.id</span>
+        </span>
         <span>Built with FastAPI, React, and an LLM through OpenRouter.</span>
       </div>
     </footer>

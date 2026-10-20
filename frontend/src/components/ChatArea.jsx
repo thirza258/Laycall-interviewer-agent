@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import hrImg from '../assets/hr.jpg';
+import Logo from './Logo';
 
 export default function ChatArea({ interview, messages, onSend, onNext, onSetup, onRetryEvaluation, onRetryResults, loading, error }) {
   const [input, setInput] = useState('');
@@ -26,6 +27,9 @@ export default function ChatArea({ interview, messages, onSend, onNext, onSetup,
     return (
       <main className="flex flex-col h-screen bg-[#0f0f23] text-[#e0e0e0]">
         <div className="max-w-[560px] mx-auto my-auto py-10 px-6 text-center">
+          <div className="flex justify-center mb-4">
+            <Logo className="w-16 h-16 rounded-2xl shadow-xl shadow-indigo-950/60" idPrefix="setup-logo" />
+          </div>
           <h1 className="text-3xl text-white font-bold mb-2">Mock Interview</h1>
           <p className="text-[#888] mb-8">Upload your resume and paste the job description to begin.</p>
           <form className="text-left flex flex-col gap-4" onSubmit={handleSetupSubmit}>
