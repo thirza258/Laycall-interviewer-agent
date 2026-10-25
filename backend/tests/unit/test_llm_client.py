@@ -228,7 +228,7 @@ class TestOpenRouterClient:
 
     @pytest.mark.asyncio
     async def test_inline_client_error_is_not_retried(self, client, no_sleep):
-        """A bad key or missing credits will not fix itself; fail immediately."""
+        """A bad key will not fix itself; fail immediately."""
         client.client.chat.completions.create = AsyncMock(
             return_value=make_completion(error={"code": 401, "message": "invalid api key"})
         )
@@ -238,6 +238,21 @@ class TestOpenRouterClient:
             await client.generate_completion(request)
 
         assert client.client.chat.completions.create.await_count == 1
+
+    @pytest.mark.asyncio
+    async def test_credit_exhausted_falls_back_to_free_model(self, client, no_sleep):
+        """When OpenRouter returns 402 out of credits, fallback to free model."""
+        client.client.chat.completions.create = AsyncMock(
+            side_effect=[
+                make_completion(error={"code": 402, "message": "User has run out of credits"}),
+                make_completion(content='{"status": "ok_from_free_model"}'),
+            ]
+        )
+
+        request = LLMRequest(messages=[{"role": "user", "content": "Hi"}])
+        res = await client.generate_completion(request)
+        assert res.content == '{"status": "ok_from_free_model"}'
+        assert client.client.chat.completions.create.await_count == 2
 
     @pytest.mark.asyncio
     async def test_missing_choices_is_retried(self, client, no_sleep):

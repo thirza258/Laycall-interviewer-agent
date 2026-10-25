@@ -30,6 +30,60 @@ RETRYABLE_STATUS_CODES = {408, 409, 429, 500, 502, 503, 504, 520, 522, 524}
 LLM_FAILURE_MESSAGE = "Failed to get response from LLM"
 RATE_LIMIT_MESSAGE = "Rate limit exceeded. Please wait before trying again."
 
+FREE_OPENROUTER_MODELS = [
+    "google/gemma-4-26b-a4b-it:free",
+    "nvidia/nemotron-3.5-lightning:free",
+    "cohere/north-mini-code:free",
+    "recursive/flint-v1.0:free",
+    "xingchen-agi/xing4.0-29b-a4b:free",
+    "nvidia/nemotron-3.5-super-vl:free",
+    "dots-studio/dots-3-note-preview:free",
+    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+    "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "google/gemma-4-31b-it:free",
+]
+
+
+def get_shuffled_free_models() -> list[str]:
+    models = list(FREE_OPENROUTER_MODELS)
+    random.shuffle(models)
+    return models
+
+
+def is_credit_exhausted_error(exc_or_status: Any, message: str = "") -> bool:
+    code = None
+    if isinstance(exc_or_status, int):
+        code = exc_or_status
+    else:
+        for attr in ("status_code", "http_status", "code"):
+            val = getattr(exc_or_status, attr, None)
+            if isinstance(val, int):
+                code = val
+                break
+        if code is None and hasattr(exc_or_status, "response"):
+            resp = getattr(exc_or_status, "response", None)
+            code = getattr(resp, "status_code", None)
+
+    msg_str = f"{exc_or_status} {message}".lower()
+    if code == 402:
+        return True
+
+    if "rate limit" in msg_str and not any(k in msg_str for k in ("credit", "payment", "balance")):
+        return False
+
+    credit_keywords = (
+        "402",
+        "credit",
+        "payment required",
+        "run out of credits",
+        "insufficient balance",
+        "insufficient credits",
+        "insufficient_quota",
+        "exceeded your current quota",
+        "out of credit",
+    )
+    return any(kw in msg_str for kw in credit_keywords)
+
 
 def _is_parseable_json(content: str) -> bool:
     """Whether the content still yields a JSON object despite a truncated finish."""
@@ -92,24 +146,40 @@ class OpenRouterClient:
                 response = await self._create_completion(model, request)
                 return self._build_response(response, model)
 
-            except OpenRouterEmptyResponseError as e:
-                last_error = e
-                if attempt < self.max_retries:
-                    delay = self._backoff_delay(attempt)
+            except Exception as e:
+                if is_credit_exhausted_error(e):
                     logger.warning(
-                        f"Empty completion from {model} "
-                        f"(attempt {attempt}/{self.max_retries}): {e}. "
-                        f"Retrying in {delay:.1f}s."
+                        f"OpenRouter credits exhausted ({e}), falling back to shuffled free models"
                     )
-                    await asyncio.sleep(delay)
-                    continue
+                    for free_model in get_shuffled_free_models():
+                        try:
+                            logger.info(f"Retrying with free fallback model: {free_model}")
+                            fb_response = await self._create_completion(free_model, request)
+                            return self._build_response(fb_response, free_model)
+                        except Exception as fb_exc:
+                            logger.warning(f"Free model {free_model} failed: {fb_exc}")
+                            continue
 
-                logger.error(f"Empty completion from {model} after {attempt} attempts: {e}")
-                raise OpenRouterAPIError(
-                    "The model returned no usable response after several attempts",
-                    502,
-                    str(e),
-                ) from e
+                if isinstance(e, OpenRouterEmptyResponseError):
+                    last_error = e
+                    if attempt < self.max_retries:
+                        delay = self._backoff_delay(attempt)
+                        logger.warning(
+                            f"Empty completion from {model} "
+                            f"(attempt {attempt}/{self.max_retries}): {e}. "
+                            f"Retrying in {delay:.1f}s."
+                        )
+                        await asyncio.sleep(delay)
+                        continue
+
+                    logger.error(f"Empty completion from {model} after {attempt} attempts: {e}")
+                    raise OpenRouterAPIError(
+                        "The model returned no usable response after several attempts",
+                        502,
+                        str(e),
+                    ) from e
+
+                raise
 
         # Unreachable: the loop either returns or raises.
         raise OpenRouterAPIError(LLM_FAILURE_MESSAGE, 502, str(last_error))
