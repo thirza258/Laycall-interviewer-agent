@@ -67,7 +67,7 @@ class OpenRouterClient:
         )
 
         self.default_headers = {
-            "HTTP-Referer": "https://rag.nevatal.tech",
+            "HTTP-Referer": "https://rag.nevatal.id",
             "X-Title": "Interviewer Backend"
         }
 
