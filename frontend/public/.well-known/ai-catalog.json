@@ -1,0 +1,45 @@
+{
+  "specVersion": "1.0",
+  "host": {
+    "displayName": "Mock Interviewer",
+    "identifier": "did:web:interview.nevatal.id"
+  },
+  "entries": [
+    {
+      "identifier": "urn:air:interview.nevatal.id:server:mcp",
+      "displayName": "Mock Interviewer MCP Server",
+      "type": "application/mcp-server-card+json",
+      "url": "https://interview.nevatal.id/.well-known/mcp/server-card.json",
+      "representativeQueries": [
+        "explore Mock Interviewer",
+        "discover Mock Interviewer capabilities",
+        "use interview preparation",
+        "use answer scoring & feedback"
+      ]
+    },
+    {
+      "identifier": "urn:air:interview.nevatal.id:agent:a2a",
+      "displayName": "Mock Interviewer A2A Agent",
+      "type": "application/json",
+      "url": "https://interview.nevatal.id/.well-known/agent-card.json",
+      "representativeQueries": [
+        "explore Mock Interviewer",
+        "discover Mock Interviewer capabilities",
+        "use interview preparation",
+        "use answer scoring & feedback"
+      ]
+    },
+    {
+      "identifier": "urn:air:interview.nevatal.id:api:v1",
+      "displayName": "Mock Interviewer API",
+      "type": "application/json",
+      "url": "https://interview.nevatal.id/api",
+      "representativeQueries": [
+        "explore Mock Interviewer",
+        "discover Mock Interviewer capabilities",
+        "use interview preparation",
+        "use answer scoring & feedback"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+# Mock Interviewer Agent
+
+> AI-powered mock interview practice, technical assessment, and resume analysis assistant.
+
+- Site: https://interview.nevatal.id/
+- Agent card: https://interview.nevatal.id/.well-known/agent-card.json
+- MCP server card: https://interview.nevatal.id/.well-known/mcp/server-card.json
+- API catalog: https://interview.nevatal.id/.well-known/api-catalog
+- API docs: https://interview.nevatal.id/api/docs

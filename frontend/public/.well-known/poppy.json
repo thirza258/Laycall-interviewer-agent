@@ -1,0 +1,46 @@
+{
+  "protocol_version": "0.1",
+  "organization": {
+    "name": "Nevatal",
+    "domain": "interview.nevatal.id"
+  },
+  "auth": {
+    "issuer": "https://interview.nevatal.id",
+    "direct": {
+      "scopes": [
+        "poppy:read",
+        "poppy:write"
+      ]
+    },
+    "device": {
+      "scopes": [
+        "poppy:read",
+        "poppy:write"
+      ]
+    }
+  },
+  "agent": {
+    "protocols": [
+      {
+        "type": "poppy",
+        "endpoint": "https://interview.nevatal.id/api"
+      }
+    ]
+  },
+  "apis": [
+    {
+      "type": "openapi",
+      "url": "https://interview.nevatal.id/api/openapi.json",
+      "description": "Mock Interviewer API"
+    },
+    {
+      "type": "mcp",
+      "url": "https://interview.nevatal.id/mcp",
+      "description": "Mock Interviewer MCP server"
+    }
+  ],
+  "web": {
+    "browser_session_endpoint": "https://interview.nevatal.id/"
+  },
+  "extensions": {}
+}
