@@ -55,12 +55,12 @@ DB_NAME=interview_db
 OPENROUTER_API_KEY=sk-or-v1-...
 OPENROUTER_MODEL=google/gemma-4-26b-a4b-it
 
-MINIO_ENDPOINT=localhost:9000
-MINIO_ACCESS_KEY=your_access_key
-MINIO_SECRET_KEY=your_secret_key
+MINIO_ENDPOINT=localhost:4530
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin
 MINIO_BUCKET=interview
 MINIO_SECURE=False
-MINIO_PUBLIC_URL=http://localhost:9000
+MINIO_PUBLIC_URL=http://localhost:4530
 ```
 
 | Variable | Description |

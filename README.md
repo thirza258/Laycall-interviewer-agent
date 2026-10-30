@@ -29,14 +29,22 @@ Learning progress, bookmarks and notes are stored in this browser under `laycall
 
 The easiest way to run the entire stack. Works on any device with Docker installed.
 
+The default compose file reuses the MinIO that the **decalove** project already
+runs (`decalove-minio` on the `decalove_default` network), so that stack must be
+up first. Set `DECALOVE_NETWORK` and `MINIO_ENDPOINT` in `.env` if the project or
+service names differ.
+
 ```bash
+# 0. Start decalove's MinIO if it is not already running
+(cd ../decalove/api && docker compose up -d minio)
+
 # 1. Clone and enter the project
 cd Interviewer
 
 # 2. Create your env file
 cp .env.example .env
 
-# 3. Set your OpenRouter API key (required)
+# 3. Set your OpenRouter API key (required) and MinIO credentials
 #    Edit .env → OPENROUTER_API_KEY=your_key_here
 #    Get a key at https://openrouter.ai/keys
 
@@ -47,6 +55,15 @@ docker compose up -d
 curl http://localhost:8000/health
 # → {"status":"healthy","env":"production"}
 ```
+
+No decalove deployment available? `docker-compose.full.yml` is the same stack
+with its own PostgreSQL and MinIO, and needs nothing else on the host:
+
+```bash
+docker compose -f docker-compose.full.yml up -d
+```
+
+Run one stack or the other, not both — they publish the same host ports.
 
 The app is now available at **http://localhost:3000** (landing page), **http://localhost:3000/app/** (the interview itself) and **http://localhost:8000/docs** (API docs).
 
@@ -94,7 +111,9 @@ npm run dev
 # → http://localhost:5173/app/  the interview app
 ```
 
-You'll need a running PostgreSQL and MinIO instance (or use `docker compose up db minio minio-init` from the root to run just those).
+You'll need a running PostgreSQL and a MinIO instance (the default compose file
+points at decalove's, or run the self-contained set with `docker compose -f
+docker-compose.full.yml up -d db minio minio-init`).
 
 ## Tests
 
@@ -157,7 +176,7 @@ npm run build
 | Backend API | `8000` | http://localhost:8000 |
 | API Docs (Swagger) | `8000` | http://localhost:8000/docs |
 | API Docs (ReDoc) | `8000` | http://localhost:8000/redoc |
-| MinIO Console | `9001` | http://localhost:9001 |
+| MinIO Console (decalove) | `4531` | http://localhost:4531 |
 | PostgreSQL | `5432` | localhost:5432 |
 
 ## Environment Variables
@@ -176,11 +195,13 @@ Copy `.env.example` to `.env` and fill in the values:
 | `DB_USER` | No | PostgreSQL user |
 | `DB_PASSWORD` | No | PostgreSQL password |
 | `DB_NAME` | No | PostgreSQL database name |
-| `MINIO_ROOT_USER` | No | MinIO access key |
-| `MINIO_ROOT_PASSWORD` | No | MinIO secret key |
-| `MINIO_BUCKET` | No | MinIO bucket name |
+| `MINIO_ACCESS_KEY` | No | Credentials for the decalove MinIO server |
+| `MINIO_SECRET_KEY` | No | Credentials for the decalove MinIO server |
+| `MINIO_BUCKET` | No | Bucket created inside that server (default: `interview`) |
+| `DECALOVE_NETWORK` | No | Compose network decalove runs on (default: `decalove_default`) |
+| `MINIO_PUBLIC_URL` | No | Browser-facing base URL for resume links (default: `http://localhost:4530`) |
 
-When running with Docker, the database and MinIO connection details are pre-configured — you only need to set `OPENROUTER_API_KEY`.
+When running with Docker, the database and MinIO connection details are pre-configured — you only need to set `OPENROUTER_API_KEY`. `docker-compose.full.yml` (the self-contained stack) reads `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` for its own MinIO instead.
 
 ### Troubleshooting: the app "loses" the model
 
