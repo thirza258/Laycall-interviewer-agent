@@ -7,6 +7,7 @@ import useAppRoute from './hooks/useAppRoute';
 
 const LearningCenter = lazy(() => import('./components/learning/LearningCenter'));
 const HrWorkspace = lazy(() => import('./components/hr/HrWorkspace'));
+const LegalView = lazy(() => import('./components/LegalView'));
 
 export default function App() {
   const [interviews, setInterviews] = useState([]);
@@ -17,11 +18,16 @@ export default function App() {
   const route = useAppRoute();
   const isLearning = route.section === 'courses' || route.section === 'questions';
   const isHr = route.section === 'hr';
-  const isWorkspace = isLearning || isHr;
+  const isLegal = route.section === 'privacy' || route.section === 'terms';
+  const isWorkspace = isLearning || isHr || isLegal;
 
   useEffect(() => {
-    if (!isLearning) document.title = isHr ? 'HR Interview Practice · Mock Interview' : 'Mock Interview';
-  }, [isLearning, isHr]);
+    if (isLegal) {
+      document.title = route.section === 'terms' ? 'Terms of Service · Mock Interview' : 'Privacy Policy · Mock Interview';
+    } else if (!isLearning) {
+      document.title = isHr ? 'HR Interview Practice · Mock Interview' : 'Mock Interview';
+    }
+  }, [isLearning, isHr, isLegal, route.section]);
 
   const activeInterview = interviews.find((iv) => iv.id === activeId);
 
@@ -215,6 +221,11 @@ export default function App() {
       {isHr && (
         <Suspense fallback={<main className="p-10 text-white" role="status">Loading HR practice…</main>}>
           <HrWorkspace key={route.sessionId || 'new'} sessionId={route.sessionId} invalidRoute={Boolean(route.lessonId || route.extra)} />
+        </Suspense>
+      )}
+      {isLegal && (
+        <Suspense fallback={<main className="p-10 text-white" role="status">Loading legal information…</main>}>
+          <LegalView initialTab={route.section} />
         </Suspense>
       )}
       {/* Keep drafts and the selected resume intact while browsing lessons. */}

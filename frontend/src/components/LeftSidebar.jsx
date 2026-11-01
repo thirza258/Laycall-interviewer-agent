@@ -68,6 +68,13 @@ export default function LeftSidebar({ interviews, activeInterviewId, onSelect, o
         )}
       </div>
       </>}
+      <div className="mt-auto px-4 py-3 border-t border-[#2a2a4a] text-xs text-[#888] flex items-center justify-between shrink-0">
+        <a href="#/privacy" className={`hover:text-white transition-colors ${section === 'privacy' ? 'text-indigo-400 font-semibold' : ''}`}>Privacy</a>
+        <span>&bull;</span>
+        <a href="#/terms" className={`hover:text-white transition-colors ${section === 'terms' ? 'text-indigo-400 font-semibold' : ''}`}>Terms</a>
+        <span>&bull;</span>
+        <span className="text-[10px] text-[#666]">Self-Hosted</span>
+      </div>
     </aside>
   );
 }
