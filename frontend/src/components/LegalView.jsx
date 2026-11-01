@@ -119,6 +119,16 @@ export default function LegalView({ initialTab = 'privacy' }) {
                 Interviews and uploaded documents can be removed directly through the application interface or server database management.
               </p>
             </section>
+
+            <section className="space-y-3">
+              <h3 className="text-lg font-semibold text-white">5. Privacy Contact</h3>
+              <p className="text-sm text-[#ccc]">
+                For any privacy questions, inquiries, or data requests, please contact:{" "}
+                <a href="mailto:nevatalapp@gmail.com" className="text-indigo-400 hover:text-indigo-300 underline font-medium">
+                  nevatalapp@gmail.com
+                </a>
+              </p>
+            </section>
           </div>
         ) : (
           <div className="space-y-6 bg-[#1a1a2e]/60 border border-[#2a2a4a] rounded-2xl p-6 md:p-8 leading-relaxed">
@@ -183,6 +193,16 @@ export default function LegalView({ initialTab = 'privacy' }) {
               <h3 className="text-lg font-semibold text-white">5. Disclaimer &amp; Limitation of Liability</h3>
               <p className="text-sm text-[#ccc]">
                 The software is provided &ldquo;as is&rdquo;, without warranty of any kind, express or implied. In no event shall the authors or copyright holders be liable for any claim, damages, or other liability arising from the use of this software.
+              </p>
+            </section>
+
+            <section className="space-y-3">
+              <h3 className="text-lg font-semibold text-white">6. Inquiries &amp; Contact</h3>
+              <p className="text-sm text-[#ccc]">
+                For questions regarding these terms, please contact:{" "}
+                <a href="mailto:nevatalapp@gmail.com" className="text-indigo-400 hover:text-indigo-300 underline font-medium">
+                  nevatalapp@gmail.com
+                </a>
               </p>
             </section>
           </div>
