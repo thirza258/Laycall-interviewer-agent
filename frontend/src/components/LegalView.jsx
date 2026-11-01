@@ -207,6 +207,11 @@ export default function LegalView({ initialTab = 'privacy' }) {
             </section>
           </div>
         )}
+
+        <footer className="mt-8 pt-6 border-t border-[#2a2a4a] text-center text-xs text-[#888] space-y-1">
+          <p>Mock Interview · Self-Hosted Technical &amp; Behavioral Platform</p>
+          <p>This project is under nevatal.id for educational purposes.</p>
+        </footer>
       </div>
     </main>
   );

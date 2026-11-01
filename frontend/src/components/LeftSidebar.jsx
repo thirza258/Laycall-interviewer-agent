@@ -68,12 +68,15 @@ export default function LeftSidebar({ interviews, activeInterviewId, onSelect, o
         )}
       </div>
       </>}
-      <div className="mt-auto px-4 py-3 border-t border-[#2a2a4a] text-xs text-[#888] flex items-center justify-between shrink-0">
-        <a href="#/privacy" className={`hover:text-white transition-colors ${section === 'privacy' ? 'text-indigo-400 font-semibold' : ''}`}>Privacy</a>
-        <span>&bull;</span>
-        <a href="#/terms" className={`hover:text-white transition-colors ${section === 'terms' ? 'text-indigo-400 font-semibold' : ''}`}>Terms</a>
-        <span>&bull;</span>
-        <span className="text-[10px] text-[#666]">Self-Hosted</span>
+      <div className="mt-auto px-4 py-3 border-t border-[#2a2a4a] text-xs text-[#888] shrink-0 space-y-1">
+        <div className="flex items-center justify-between">
+          <a href="#/privacy" className={`hover:text-white transition-colors ${section === 'privacy' ? 'text-indigo-400 font-semibold' : ''}`}>Privacy</a>
+          <span>&bull;</span>
+          <a href="#/terms" className={`hover:text-white transition-colors ${section === 'terms' ? 'text-indigo-400 font-semibold' : ''}`}>Terms</a>
+          <span>&bull;</span>
+          <span className="text-[10px] text-[#666]">Self-Hosted</span>
+        </div>
+        <p className="text-[10px] text-[#777] text-center">This project is under nevatal.id for educational purposes.</p>
       </div>
     </aside>
   );
