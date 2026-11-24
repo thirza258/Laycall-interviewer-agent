@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 export default function LegalView({ initialTab = 'privacy' }) {
   const [activeTab, setActiveTab] = useState(initialTab === 'terms' ? 'terms' : 'privacy');

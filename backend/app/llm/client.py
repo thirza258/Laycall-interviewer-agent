@@ -31,15 +31,14 @@ LLM_FAILURE_MESSAGE = "Failed to get response from LLM"
 RATE_LIMIT_MESSAGE = "Rate limit exceeded. Please wait before trying again."
 
 FREE_OPENROUTER_MODELS = [
-    "google/gemma-4-26b-a4b-it:free",
-    "nvidia/nemotron-3.5-lightning:free",
-    "cohere/north-mini-code:free",
-    "recursive/flint-v1.0:free",
-    "xingchen-agi/xing4.0-29b-a4b:free",
-    "nvidia/nemotron-3.5-super-vl:free",
-    "dots-studio/dots-3-note-preview:free",
-    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+    "openrouter/free",
     "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "dots-studio/dots-3-note-preview:free",
+    "recursive/flint-v1.0:free",
+    "liquid/lfm-3-1.7b:free",
+    "baidu/ernie-5.5-flash-preview:free",
+    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+    "google/gemma-4-26b-a4b-it:free",
     "google/gemma-4-31b-it:free",
 ]
 
@@ -103,7 +102,10 @@ class OpenRouterClient:
     def __init__(self):
         settings = get_settings()
 
-        self.default_model = settings.OPENROUTER_MODEL
+        model = settings.OPENROUTER_MODEL
+        if not model or not (model.endswith(":free") or model == "openrouter/free"):
+            model = "openrouter/free"
+        self.default_model = model
         self.max_retries = max(1, settings.OPENROUTER_MAX_RETRIES)
 
         self.client = AsyncOpenAI(
@@ -121,7 +123,7 @@ class OpenRouterClient:
         )
 
         self.default_headers = {
-            "HTTP-Referer": "https://rag.nevatal.id",
+            "HTTP-Referer": "https://interview.nevatal.id",
             "X-Title": "Interviewer Backend"
         }
 
@@ -138,50 +140,29 @@ class OpenRouterClient:
         retried by the SDK. Responses that arrive as HTTP 200 but carry no usable
         completion are invisible to the SDK, so they are retried here.
         """
-        model = request.model or self.default_model
+        requested_model = request.model or self.default_model
+        if requested_model and (requested_model.endswith(":free") or requested_model == "openrouter/free"):
+            models_to_try = [requested_model] + [m for m in get_shuffled_free_models() if m != requested_model]
+        else:
+            models_to_try = get_shuffled_free_models()
+
         last_error: Optional[Exception] = None
-
-        for attempt in range(1, self.max_retries + 1):
-            try:
-                response = await self._create_completion(model, request)
-                return self._build_response(response, model)
-
-            except Exception as e:
-                if is_credit_exhausted_error(e):
-                    logger.warning(
-                        f"OpenRouter credits exhausted ({e}), falling back to shuffled free models"
-                    )
-                    for free_model in get_shuffled_free_models():
-                        try:
-                            logger.info(f"Retrying with free fallback model: {free_model}")
-                            fb_response = await self._create_completion(free_model, request)
-                            return self._build_response(fb_response, free_model)
-                        except Exception as fb_exc:
-                            logger.warning(f"Free model {free_model} failed: {fb_exc}")
-                            continue
-
-                if isinstance(e, OpenRouterEmptyResponseError):
+        for current_model in models_to_try:
+            for attempt in range(1, self.max_retries + 1):
+                try:
+                    response = await self._create_completion(current_model, request)
+                    return self._build_response(response, current_model)
+                except Exception as e:
                     last_error = e
-                    if attempt < self.max_retries:
+                    logger.warning(
+                        f"Model {current_model} failed (attempt {attempt}/{self.max_retries}): {e}"
+                    )
+                    if isinstance(e, OpenRouterEmptyResponseError) and attempt < self.max_retries:
                         delay = self._backoff_delay(attempt)
-                        logger.warning(
-                            f"Empty completion from {model} "
-                            f"(attempt {attempt}/{self.max_retries}): {e}. "
-                            f"Retrying in {delay:.1f}s."
-                        )
                         await asyncio.sleep(delay)
                         continue
+                    break  # Try next free model
 
-                    logger.error(f"Empty completion from {model} after {attempt} attempts: {e}")
-                    raise OpenRouterAPIError(
-                        "The model returned no usable response after several attempts",
-                        502,
-                        str(e),
-                    ) from e
-
-                raise
-
-        # Unreachable: the loop either returns or raises.
         raise OpenRouterAPIError(LLM_FAILURE_MESSAGE, 502, str(last_error))
 
     async def _create_completion(self, model: str, request: LLMRequest) -> Any:
@@ -237,7 +218,7 @@ class OpenRouterClient:
         try:
             choice = choices[0]
             usage = getattr(response, "usage", None)
-            content = choice.message.content or ""
+            content = choice.message.content or getattr(choice.message, "reasoning", "") or ""
             finish_reason = choice.finish_reason or "unknown"
 
             llm_response = LLMResponse(
